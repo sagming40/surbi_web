@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'widgets/common/responsive_layout.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Task 1-3 추가
+import 'widgets/common/responsive_layout.dart'; // Task 1-2 추가
 
 void main() {
-  runApp(const SurbiApp());
+  runApp(
+    // Task 1-3 추가 ProviderScope로 앱 전체를 감쌈
+    const ProviderScope(child: SurbiApp()),
+  );
 }
 
 class SurbiApp extends StatelessWidget {
