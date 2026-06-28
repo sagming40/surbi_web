@@ -40,7 +40,7 @@
 - **Flutter Web** — 단일 코드베이스 웹 앱
 - **Riverpod** — 전역 상태 관리
 - **go_router** — 웹 네비게이션 (URL 라우팅)
-- **Firebase Auth** — 구글 소셜 로그인
+- **Firebase Auth** — 카카오 · 네이버 소셜 로그인
 - **Cloud Firestore** — 사용자 데이터 저장
 
 ### Backend (담당: 최민수)
@@ -122,7 +122,7 @@ flutter run -d chrome
 
 > 워크플로우 상세 내용은 팀 Notion을 참고하세요.
 
-- [x] EPIC 1 — 환경 구축 & 기반 설계 (진행중)
+- [x] EPIC 1 — 환경 구축 & 기반 설계 ✅ 완료
 - [ ] EPIC 2 — 인증 & 사용자 관리
 - [ ] EPIC 3 — Step 1~4 핵심 화면 개발
 - [ ] EPIC 4 — 백엔드 API 연동
