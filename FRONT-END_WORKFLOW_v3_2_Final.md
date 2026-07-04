@@ -812,13 +812,13 @@ service cloud.firestore {
 
 ---
 
-### ⏳ Task 3-1 · [Step 1] 지역 및 카테고리 선택 UI
+### ✅ Task 3-1 · [Step 1] 지역 및 카테고리 선택 UI
 
-- [ ]  시 / 구 / 동 검색창 또는 드롭다운 구현
-- [ ]  창업 카테고리 선택 버튼 (카페 / 치킨 / 한식 / 분식 등)
-- [ ]  선택 완료 시 `/step2/{regionCode}`로 이동
-- [ ]  선택 상태 Riverpod `RegionNotifier`로 관리
-- [ ]  하단 히트맵 영역 UI 구현 (행정동별 창업 점수를 색상 진하기로 표시, Figma 참고)
+- [x]  시 / 구 / 동 검색창 또는 드롭다운 구현
+- [x]  창업 카테고리 선택 버튼 (카페 / 치킨 / 한식 / 분식 등)
+- [x]  선택 완료 시 `/step2/{regionCode}`로 이동
+- [x]  선택 상태 Riverpod `RegionNotifier`로 관리
+- [x]  하단 히트맵 영역 UI 구현 (행정동별 창업 점수를 색상 진하기로 표시, Figma 참고)
        → ⚠️ 실제 색상 데이터는 DB `geom` 컬럼 미적재 상태 → 지금은 회색 placeholder 박스로 구현
        → 데이터 연동은 Task 4-3에서 진행 예정
 

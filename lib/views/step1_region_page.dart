@@ -15,7 +15,7 @@ class Step1RegionPage extends ConsumerWidget {
     final selection = ref.watch(regionNotifierProvider); // ⭐ 새로 추가
 
     return Scaffold(
-      backgroundColor: SurbiColors.primaryLight,
+      backgroundColor: SurbiColors.primary,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -49,7 +49,7 @@ class Step1RegionPage extends ConsumerWidget {
               }
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: SurbiColors.primary,
+          backgroundColor: SurbiColors.accent,
           disabledBackgroundColor: SurbiColors.placeholderGray,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -111,11 +111,11 @@ class Step1RegionPage extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? SurbiColors.primary : Colors.white,
+              color: isSelected ? SurbiColors.accent : Colors.white,
               borderRadius: BorderRadius.circular(SurbiRadius.chip),
               border: Border.all(
                 color: isSelected
-                    ? SurbiColors.primary
+                    ? SurbiColors.accent
                     : SurbiColors.placeholderGray,
               ),
             ),

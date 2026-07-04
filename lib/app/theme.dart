@@ -9,7 +9,7 @@ class SurbiColors {
   static const Color success = Color(0xFF16A34A); // 그라스 그린 — 완료 배지, 체크리스트
 
   // ── 강조 컬러 (Accent) ────────────────────
-  static const Color accent = Color(0xFFD97706); // 앰버/골드 — 핵심 CTA 버튼, 점수 강조
+  static const Color accent = Color(0xFFA0522D); // 번트 시에나 — 핵심 CTA 버튼, 점수 강조
 
   // ── 중립 컬러 (Neutral) ────────────────────
   static const Color placeholderGray = Color(0xFFD9D9D9); // 히트맵 placeholder 등
