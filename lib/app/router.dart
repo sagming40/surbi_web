@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import '../views/step1_region_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -54,8 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Step 1: 지역·카테고리 선택
       GoRoute(
         path: '/step1',
-        builder: (context, state) =>
-            const PlaceholderPage(label: 'Step 1 지역·카테고리 선택 (준비중)'),
+        builder: (context, state) => const Step1RegionPage(), // ⭐ 교체
       ),
 
       // Step 2: 상권 분석 대시보드
