@@ -6,6 +6,7 @@ import 'app/router.dart'; // Task 1-4 추가
 
 void main() {
   usePathUrlStrategy(); // # 없는 깔끔한 주소 사용
+
   runApp(
     // Task 1-3 추가 ProviderScope로 앱 전체를 감쌈
     const ProviderScope(child: SurbiApp()),
