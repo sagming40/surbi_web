@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_chart/fl_chart.dart'; // ⭐ 새로 추가
 import '../app/theme.dart';
 import '../models/commercial_area.dart';
 import '../providers/area_provider.dart';
@@ -29,14 +30,142 @@ class Step2DashboardPage extends ConsumerWidget {
         iconTheme: const IconThemeData(color: SurbiColors.accent),
       ),
       body: SafeArea(
-        child: ListView.separated(
+        child: Padding(
           padding: const EdgeInsets.all(24),
-          itemCount: areas.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            return _buildAreaCard(areas[index]);
-          },
+          child: Column(
+            children: [
+              _buildFootTrafficChart(areas), // ⭐ 새로 추가
+              const SizedBox(height: 24),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: areas.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    return _buildAreaCard(areas[index]);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// 지역별 유동인구 비교 막대그래프
+  Widget _buildFootTrafficChart(List<CommercialArea> areas) {
+    return Container(
+      height: 240, // 220 → 240으로 살짝 늘림 (숫자 라벨 공간 확보)
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(SurbiRadius.card),
+        border: Border.all(color: SurbiColors.placeholderGray),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '지역별 유동인구 비교',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: SurbiColors.accent,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: 20000,
+                // ⭐ 막대그래프 수정
+                barTouchData: BarTouchData(
+                  enabled: true, // ⭐ false → true
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => SurbiColors.accent,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final area = areas[group.x];
+                      return BarTooltipItem(
+                        '${area.regionName}\n${rod.toY.toInt()}명',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
+                  ),
+                ), // ⭐ 막대그래프 수정
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32, // ⭐ 새로 추가 — 라벨 자리를 32픽셀로 넉넉하게 확보
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= areas.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final shortName = areas[index].regionName
+                            .split(' ')
+                            .last;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            shortName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: SurbiColors.textGray,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: areas.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final area = entry.value;
+                  return BarChartGroupData(
+                    x: index,
+                    barRods: [
+                      BarChartRodData(
+                        toY: area.footTraffic.toDouble(),
+                        // ⭐ 막대그래프 수정
+                        color: area.score >= 70
+                            ? SurbiColors.success
+                            : SurbiColors.accent, // ⭐ 점수 기준 색상 분기
+                        width: 28,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(6),
+                          topRight: Radius.circular(6),
+                        ),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: 20000,
+                          color: SurbiColors.placeholderGray.withOpacity(0.3),
+                          // ⭐ 막대그래프 수정
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
