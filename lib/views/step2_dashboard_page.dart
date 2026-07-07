@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart'; // ⭐ 새로 추가
+import 'package:go_router/go_router.dart';
 import '../app/theme.dart';
 import '../models/commercial_area.dart';
 import '../providers/area_provider.dart';
@@ -42,7 +43,7 @@ class Step2DashboardPage extends ConsumerWidget {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 16),
                   itemBuilder: (context, index) {
-                    return _buildAreaCard(areas[index]);
+                    return _buildAreaCard(context, ref, areas[index]);
                   },
                 ),
               ),
@@ -171,42 +172,60 @@ class Step2DashboardPage extends ConsumerWidget {
   }
 
   /// 상권 카드 한 개 (지역명 + 점수 + 유동인구/경쟁도/폐업위험도 요약)
-  Widget _buildAreaCard(CommercialArea area) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Widget _buildAreaCard(
+    BuildContext context,
+    WidgetRef ref,
+    CommercialArea area,
+  ) {
+    // ⭐ Material => Container가 갖고 있던 color: Colors.white 역할
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(SurbiRadius.card),
+      // ⭐ GestureDetector → InkWell => UX 개선(터치감, 피드백 부재)
+      child: InkWell(
+        onTap: () {
+          ref.read(selectedAreaProvider.notifier).state = area;
+          context.push('/step3/map/${area.regionCode}');
+        },
         borderRadius: BorderRadius.circular(SurbiRadius.card),
-        border: Border.all(color: SurbiColors.placeholderGray),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        splashColor: SurbiColors.accent.withOpacity(0.1),
+        highlightColor: SurbiColors.accent.withOpacity(0.05),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(SurbiRadius.card),
+            border: Border.all(color: SurbiColors.placeholderGray),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                area.regionName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: SurbiColors.accent,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    area.regionName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: SurbiColors.accent,
+                    ),
+                  ),
+                  _buildScoreBadge(area.score),
+                ],
               ),
-              _buildScoreBadge(area.score),
+              const SizedBox(height: 12),
+              _buildStatRow('유동인구', '${area.footTraffic}명'),
+              _buildStatRow(
+                '경쟁도',
+                '${(area.competitionRate * 100).toStringAsFixed(0)}%',
+              ),
+              _buildStatRow(
+                '폐업 위험도',
+                '${(area.closureRisk * 100).toStringAsFixed(0)}%',
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildStatRow('유동인구', '${area.footTraffic}명'),
-          _buildStatRow(
-            '경쟁도',
-            '${(area.competitionRate * 100).toStringAsFixed(0)}%',
-          ),
-          _buildStatRow(
-            '폐업 위험도',
-            '${(area.closureRisk * 100).toStringAsFixed(0)}%',
-          ),
-        ],
+        ),
       ),
     );
   }

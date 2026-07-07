@@ -71,9 +71,13 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Step 3: 지도 모드 — 건물 탐색
       GoRoute(
-        path: '/step3/map',
-        builder: (context, state) =>
-            const PlaceholderPage(label: 'Step 3: 지도 모드 (준비중)'),
+        path: '/step3/map/:regionCode',
+        builder: (context, state) {
+          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          return PlaceholderPage(
+            label: 'Step 3: 지도 모드 (준비중)\n지역코드: $regionCode',
+          );
+        },
       ),
 
       // Step 4: AI 창업 점수 + LLM 보고서
