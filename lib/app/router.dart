@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+// import 'package:surbi_web/views/step3_map_page.dart';
 import '../views/step1_region_page.dart'; // ⭐ 새로 추가
+import '../views/step3_map_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -71,10 +73,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Step 3: 지도 모드 — 건물 탐색
+      // :regionCode = 행정동 코드 (Step2에서 넘어옴)
       GoRoute(
-        path: '/step3/map',
-        builder: (context, state) =>
-            const PlaceholderPage(label: 'Step 3: 지도 모드 (준비중)'),
+        path: '/step3/:regionCode',
+        builder: (context, state) {
+          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          return Step3MapPage(regionCode: regionCode);
+        },
       ),
 
       // Step 4: AI 창업 점수 + LLM 보고서
