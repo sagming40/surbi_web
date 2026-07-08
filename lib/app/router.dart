@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../views/step1_region_page.dart'; // ⭐ 새로 추가
+import '../views/step4_score_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -82,10 +83,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/step4/:buildingId',
         builder: (context, state) {
-          final buildingId = state.pathParameters['buildingId'] ?? '없음';
-          return PlaceholderPage(
-            label: 'Step 4: AI 분석 (준비중)\n건물 ID: $buildingId',
-          );
+          final buildingId = state.pathParameters['buildingId']!;
+          return Step4ScorePage(buildingId: buildingId);
         },
       ),
     ],
