@@ -18,6 +18,9 @@ class ShapBarChart extends StatelessWidget {
     // 절댓값 비율 계산 (0~1 사이로 제한)
     final ratio = (factor.value.abs() / factor.maxScore).clamp(0.0, 1.0);
     final isPositive = factor.value >= 0;
+    final barColor = isPositive
+        ? SurbiColors.shapPositive
+        : SurbiColors.shapNegative;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -25,11 +28,31 @@ class ShapBarChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 요인 이름표 (예: 유동인구)
-          Text(
-            factor.name,
-            style: const TextStyle(fontSize: 13, color: SurbiColors.textGray),
+          // 이름표 + 숫자를 한 줄에 나란히
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                factor.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: SurbiColors.textGray,
+                ),
+              ),
+              // 숫자 값 표시 (예: +16, -10)
+              Text(
+                isPositive
+                    ? '+${factor.value.toInt()}'
+                    : '${factor.value.toInt()}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: barColor,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
 
           // 막대 + 가운데 기준선
           SizedBox(
@@ -56,9 +79,9 @@ class ShapBarChart extends StatelessWidget {
 
                 // 가운데 기준선 (0점 지점)
                 Container(
-                  width: 2,
-                  height: 28, // 막대(20)보다 살짝 크게 키워서 도드라지게
-                  color: SurbiColors.accent, // 연한 회색 대신 네이비로 — 눈에 확 띄게
+                  width: 1.5,
+                  height: 24, // 막대(20)보다 살짝 크게 키워서 도드라지게
+                  color: Colors.grey.shade500, // 회색 복귀, 살짝 더 진하게
                 ),
 
                 // 오른쪽 절반 — 양수(기여) 자리
@@ -79,26 +102,6 @@ class ShapBarChart extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 2),
-
-          // 숫자 값 표시 (예: +16, -10) — 양수면 오른쪽 정렬, 음수면 왼쪽 정렬
-          Align(
-            alignment: isPositive
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: Text(
-              isPositive
-                  ? '+${factor.value.toInt()}'
-                  : '${factor.value.toInt()}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isPositive
-                    ? SurbiColors.shapPositive
-                    : SurbiColors.shapNegative,
-              ),
             ),
           ),
         ],
