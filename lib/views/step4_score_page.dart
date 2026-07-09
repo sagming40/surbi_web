@@ -47,7 +47,7 @@ class Step4ScorePage extends StatelessWidget {
               // ── 카드 3: 점수 상세 분석 (SHAP) ──
               _buildCard(
                 title: '점수 상세 분석',
-                subtitle: '항목을 길게 누르면 자세한 설명을 볼 수 있어요',
+                subtitle: '막대그래프를 길게 누르면 이 점수가 무엇을 뜻하는지 볼 수 있어요',
                 child: ShapBarChart(
                   factors: [
                     ShapFactor(name: '유동인구', value: 16, maxScore: 20),

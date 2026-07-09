@@ -32,16 +32,11 @@ class ShapBarChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Tooltip(
-                message: _friendlyDescription(factor.name),
-                triggerMode: TooltipTriggerMode.longPress, // 길게 눌러야 뜨게
-                showDuration: const Duration(seconds: 3), // 3초 보여주고 사라짐
-                child: Text(
-                  factor.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: SurbiColors.textGray,
-                  ),
+              Text(
+                factor.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: SurbiColors.textGray,
                 ),
               ),
               // 숫자 값 표시 (예: +16, -10)
@@ -60,53 +55,58 @@ class ShapBarChart extends StatelessWidget {
           const SizedBox(height: 6),
 
           // 막대 + 가운데 기준선
-          SizedBox(
-            height: 20,
-            child: Row(
-              children: [
-                // 왼쪽 절반 — 음수(감점) 자리
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FractionallySizedBox(
-                      widthFactor: isPositive ? 0 : ratio,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: SurbiColors.shapNegative,
-                          borderRadius: const BorderRadius.horizontal(
-                            left: Radius.circular(4),
+          Tooltip(
+            message: _friendlyDescription(factor.name),
+            triggerMode: TooltipTriggerMode.longPress,
+            showDuration: const Duration(seconds: 3),
+            child: SizedBox(
+              height: 20,
+              child: Row(
+                children: [
+                  // 왼쪽 절반 — 음수(감점) 자리
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FractionallySizedBox(
+                        widthFactor: isPositive ? 0 : ratio,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: SurbiColors.shapNegative,
+                            borderRadius: const BorderRadius.horizontal(
+                              left: Radius.circular(4),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-                // 가운데 기준선 (0점 지점)
-                Container(
-                  width: 1.5,
-                  height: 24, // 막대(20)보다 살짝 크게 키워서 도드라지게
-                  color: Colors.grey.shade500, // 회색 복귀, 살짝 더 진하게
-                ),
+                  // 가운데 기준선 (0점 지점)
+                  Container(
+                    width: 1.5,
+                    height: 24, // 막대(20)보다 살짝 크게 키워서 도드라지게
+                    color: Colors.grey.shade500, // 회색 복귀, 살짝 더 진하게
+                  ),
 
-                // 오른쪽 절반 — 양수(기여) 자리
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: isPositive ? ratio : 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: SurbiColors.shapPositive,
-                          borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(4),
+                  // 오른쪽 절반 — 양수(기여) 자리
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: isPositive ? ratio : 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: SurbiColors.shapPositive,
+                            borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(4),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
