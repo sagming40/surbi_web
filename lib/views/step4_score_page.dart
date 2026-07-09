@@ -16,42 +16,39 @@ class Step4ScorePage extends StatelessWidget {
       appBar: AppBar(title: const Text('AI 창업 점수')),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Center(
-          // 내용 길어져도 스크롤 가능하게
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min, // Column이 화면 전체 세로를 억지로 안 늘리게
-              children: [
-                // ── 카드 1: 종합 점수 ──
-                _buildCard(
-                  title: '종합 창업 점수',
-                  child: const ScoreGauge(score: 75),
-                ),
-                const SizedBox(height: 20),
+        // 내용 길어져도 스크롤 가능하게
+        // Center 제거 SingleChildScrollView만
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // ── 카드 1: 종합 점수 ──
+              _buildCard(title: '종합 창업 점수', child: const ScoreGauge(score: 75)),
+              const SizedBox(height: 20),
 
-                // ── 카드 2: 예상 성과 (신규 추가) ──
-                _buildCard(
-                  title: '예상 성과',
-                  child: _buildPerformanceRow(
-                    predictedSales: 8500000, // 테스트용 임시 값 (원)
-                    closureRiskPct: 12.0, // 테스트용 임시 값 (%)
-                  ),
+              // ── 카드 2: 예상 성과 (신규 추가) ──
+              _buildCard(
+                title: '예상 성과',
+                child: _buildPerformanceRow(
+                  predictedSales: 8500000, // 테스트용 임시 값 (원)
+                  closureRiskPct: 12.0, // 테스트용 임시 값 (%)
                 ),
+              ),
+              const SizedBox(height: 20),
 
-                // ── 카드 3: 점수 상세 분석 (SHAP) ──
-                _buildCard(
-                  title: '점수 상세 분석',
-                  subtitle: '항목을 길게 누르면 자세한 설명을 볼 수 있어요',
-                  child: ShapBarChart(
-                    factors: [
-                      ShapFactor(name: '유동인구', value: 16, maxScore: 20),
-                      ShapFactor(name: '경쟁 강도', value: -10, maxScore: 15),
-                      ShapFactor(name: '정책 지원 적합도', value: 18, maxScore: 20),
-                    ],
-                  ),
+              // ── 카드 3: 점수 상세 분석 (SHAP) ──
+              _buildCard(
+                title: '점수 상세 분석',
+                subtitle: '항목을 길게 누르면 자세한 설명을 볼 수 있어요',
+                child: ShapBarChart(
+                  factors: [
+                    ShapFactor(name: '유동인구', value: 16, maxScore: 20),
+                    ShapFactor(name: '경쟁 강도', value: -10, maxScore: 15),
+                    ShapFactor(name: '정책 지원 적합도', value: 18, maxScore: 20),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
