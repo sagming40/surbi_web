@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart'; // 콤마 포맷용
 import 'package:flutter/material.dart';
 import 'package:surbi_web/models/score_result.dart';
 import 'package:surbi_web/widgets/step4/score_gauge.dart';
@@ -28,7 +29,16 @@ class Step4ScorePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // ── 카드 2: 항목별 상세 분석 ──
+                // ── 카드 2: 예상 성과 (신규 추가) ──
+                _buildCard(
+                  title: '예상 성과',
+                  child: _buildPerformanceRow(
+                    predictedSales: 8500000, // 테스트용 임시 값 (원)
+                    closureRiskPct: 12.0, // 테스트용 임시 값 (%)
+                  ),
+                ),
+
+                // ── 카드 3: 점수 상세 분석 (SHAP) ──
                 _buildCard(
                   title: '점수 상세 분석',
                   subtitle: '항목을 길게 누르면 자세한 설명을 볼 수 있어요',
@@ -45,6 +55,57 @@ class Step4ScorePage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  // 예상 매출 / 폐업 위험도 헬퍼 함수
+  Widget _buildPerformanceRow({
+    required int predictedSales,
+    required double closureRiskPct,
+  }) {
+    final formattedSales = NumberFormat('#,###').format(predictedSales);
+    final riskColor = closureRiskPct >= 30
+        ? Colors.red
+        : (closureRiskPct >= 15 ? Colors.orange : Colors.green);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatItem(
+            '예상 월매출',
+            '$formattedSales원',
+            const Color(0xFF1E3A5F),
+          ),
+        ),
+        Container(width: 1, height: 40, color: Colors.grey.shade300),
+        Expanded(
+          child: _buildStatItem(
+            '폐업 위험도',
+            '${closureRiskPct.toInt()}%',
+            riskColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
