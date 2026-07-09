@@ -55,7 +55,11 @@ class ShapBarChart extends StatelessWidget {
                 ),
 
                 // 가운데 기준선 (0점 지점)
-                Container(width: 1.5, height: 20, color: Colors.grey.shade400),
+                Container(
+                  width: 2,
+                  height: 28, // 막대(20)보다 살짝 크게 키워서 도드라지게
+                  color: SurbiColors.accent, // 연한 회색 대신 네이비로 — 눈에 확 띄게
+                ),
 
                 // 오른쪽 절반 — 양수(기여) 자리
                 Expanded(
@@ -79,15 +83,22 @@ class ShapBarChart extends StatelessWidget {
           ),
           const SizedBox(height: 2),
 
-          // 숫자 값 표시 (예: +16, -10)
-          Text(
-            isPositive ? '+${factor.value.toInt()}' : '${factor.value.toInt()}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isPositive
-                  ? SurbiColors.shapPositive
-                  : SurbiColors.shapNegative,
+          // 숫자 값 표시 (예: +16, -10) — 양수면 오른쪽 정렬, 음수면 왼쪽 정렬
+          Align(
+            alignment: isPositive
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            child: Text(
+              isPositive
+                  ? '+${factor.value.toInt()}'
+                  : '${factor.value.toInt()}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isPositive
+                    ? SurbiColors.shapPositive
+                    : SurbiColors.shapNegative,
+              ),
             ),
           ),
         ],
