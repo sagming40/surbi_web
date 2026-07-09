@@ -48,6 +48,34 @@ class Step4ScorePage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // AI 보고서 생성하기 버튼
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // ⚠️ Task 3-5(LLM 보고서 출력 화면) 완성 전까지 임시 처리
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('보고서 생성 기능은 준비 중이에요 (Task 3-5)'),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A5F), // 네이비
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'AI 보고서 생성하기',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
