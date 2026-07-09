@@ -32,11 +32,16 @@ class ShapBarChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                factor.name,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: SurbiColors.textGray,
+              Tooltip(
+                message: _friendlyDescription(factor.name),
+                triggerMode: TooltipTriggerMode.longPress, // 길게 눌러야 뜨게
+                showDuration: const Duration(seconds: 3), // 3초 보여주고 사라짐
+                child: Text(
+                  factor.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: SurbiColors.textGray,
+                  ),
                 ),
               ),
               // 숫자 값 표시 (예: +16, -10)
@@ -107,5 +112,21 @@ class ShapBarChart extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // 딱딱한 항목명을 친절한 설명으로 바꿔주는 함수
+  // ⚠️ 임시 하드코딩 - BE에서 이 설명까지 함께 내려줄지,
+  // FE에서 고정 문구로 관리할지 협의 필요
+  String _friendlyDescription(String factorName) {
+    switch (factorName) {
+      case '유동인구':
+        return '이 지역에 하루동안 오가는 사람이 얼마나 되는지';
+      case '경쟁 강도':
+        return '주변에 비슷한 업종의 가게가 얼마나 몰려 있는지';
+      case '정책 지원 적합도':
+        return '내가 받을 수 있는 정부 지원사업과 얼마나 잘 맞는지';
+      default:
+        return '';
+    }
   }
 }
