@@ -13,7 +13,16 @@ class Step4ScorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFA), // 은백색 배경
-      appBar: AppBar(title: const Text('AI 창업 점수')),
+      appBar: AppBar(
+        title: const Text(
+          'AI 창업 점수',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E3A5F),
+          ),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         // 내용 길어져도 스크롤 가능하게
