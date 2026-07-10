@@ -2,7 +2,7 @@ import 'package:intl/intl.dart'; // 콤마 포맷용
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // ⭐ 추가
 import 'package:surbi_web/providers/score_provider.dart'; // ⭐ 추가
-import 'package:surbi_web/widgets/step4/report_loading.dart'; // ⭐ 추가
+import 'package:surbi_web/widgets/step4/report_page.dart';
 import 'package:surbi_web/widgets/step4/score_gauge.dart';
 import 'package:surbi_web/widgets/step4/shap_bar_chart.dart';
 
@@ -71,10 +71,10 @@ class Step4ScorePage extends ConsumerWidget {
                 height: 52,
                 child: ElevatedButton(
                   onPressed: () {
-                    // ⚠️ Task 3-5(LLM 보고서 출력 화면) 완성 전까지 임시 처리
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('보고서 생성 기능은 준비 중이에요 (Task 3-5)'),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReportPage(),
                       ),
                     );
                   },
