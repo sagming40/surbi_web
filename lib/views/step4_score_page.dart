@@ -2,6 +2,7 @@ import 'package:intl/intl.dart'; // 콤마 포맷용
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // ⭐ 추가
 import 'package:surbi_web/providers/score_provider.dart'; // ⭐ 추가
+import 'package:surbi_web/widgets/step4/report_loading.dart'; // ⭐ 추가
 import 'package:surbi_web/widgets/step4/score_gauge.dart';
 import 'package:surbi_web/widgets/step4/shap_bar_chart.dart';
 
