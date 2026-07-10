@@ -55,7 +55,7 @@ class ReportViewer extends StatelessWidget {
             title: '상권 요약',
             content: report.summary,
             accentColor: const Color(0xFF1E3A5F),
-            bgColor: const Color(0xFFEFF3F7),
+            bgColor: const Color(0xFFE3E9F0),
           ),
           const SizedBox(height: 16),
 
@@ -65,7 +65,7 @@ class ReportViewer extends StatelessWidget {
             title: '리스크 요인',
             content: report.riskFactors,
             accentColor: const Color(0xFFB86E00),
-            bgColor: const Color(0xFFFFF6E8),
+            bgColor: const Color(0xFFFCECC9),
           ),
           const SizedBox(height: 16),
 
@@ -75,7 +75,7 @@ class ReportViewer extends StatelessWidget {
             title: '정책 추천',
             content: report.policyAdvice,
             accentColor: const Color(0xFF2E7D32),
-            bgColor: const Color(0xFFEEF7EF),
+            bgColor: const Color(0xFFE0F0E2),
           ),
         ],
       ),
@@ -94,11 +94,12 @@ class ReportViewer extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bgColor, // ⭐ 흰색 → 성격별 연한 배경색
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            // ⭐ 배경이 흰색이 아니니 그림자도 더 은은하게
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -113,7 +114,7 @@ class ReportViewer extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: bgColor,
+                  color: bgColor, // ⭐ bgColor → 흰색으로 (배경과 구분되게)
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 18, color: accentColor),

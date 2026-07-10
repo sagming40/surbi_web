@@ -45,7 +45,24 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 창업 보고서')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.chevron_left,
+            size: 30,
+            color: Color(0xFF1E3A5F),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'AI 창업 보고서',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E3A5F),
+          ),
+        ),
+      ),
       body: _isLoading
           ? const ReportLoading()
           : ReportViewer(report: ref.read(reportProvider)),
