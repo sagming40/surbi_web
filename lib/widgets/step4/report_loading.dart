@@ -58,7 +58,7 @@ class _ReportLoadingState extends State<ReportLoading> {
             _messages[_currentIndex],
             style: const TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.bold,
               color: Color(0xFF1E3A5F),
             ),
           ),

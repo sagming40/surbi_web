@@ -46,6 +46,8 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white, // ⭐ 추가
+        elevation: 0, // ⭐ 추가 (그림자 없이 깔끔하게)
         leading: IconButton(
           icon: const Icon(
             Icons.chevron_left,
@@ -62,10 +64,56 @@ class _ReportPageState extends ConsumerState<ReportPage> {
             color: Color(0xFF1E3A5F),
           ),
         ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.grey.shade200, height: 1),
+        ),
       ),
       body: _isLoading
           ? const ReportLoading()
           : ReportViewer(report: ref.read(reportProvider)),
+
+      // ⭐ 로딩 중엔 버튼 자체를 안 보여주고, 결과 화면일 때만 하단에 고정
+      bottomNavigationBar: _isLoading ? null : _buildBottomButton(context),
+    );
+  }
+
+  Widget _buildBottomButton(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: OutlinedButton(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('지원사업 목록은 준비 중이에요 (Task 3-6)')),
+            );
+          },
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFF1E3A5F)),
+            foregroundColor: const Color(0xFF1E3A5F),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '지원사업 자세히 보기',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.chevron_right, size: 26),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
