@@ -17,45 +17,65 @@ class ReportViewer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── 헤더: 지역명 + 업종 + 생성일 ──
-          Text(
-            '${report.regionName} · ${report.category}',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E3A5F),
+          // ── 헤더: 지역명 + 업종 + 생성일 (카드형 / 💡) ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E3A5F),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${report.regionName} · ${report.category}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'AI 창업 의사결정 보고서 · ${report.createdAt}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '${report.createdAt} 생성',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 24),
-          const Divider(height: 1),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // ── 섹션 1: 상권 요약 ──
           _buildSection(
             icon: Icons.bar_chart_outlined,
             title: '상권 요약',
             content: report.summary,
+            accentColor: const Color(0xFF1E3A5F),
+            bgColor: const Color(0xFFEFF3F7),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // ── 섹션 2: 리스크 요인 ──
+          // ── 섹션 2: 리스크 요인 (앰버 계열 — ⚠️) ──
           _buildSection(
             icon: Icons.warning_amber_outlined,
             title: '리스크 요인',
             content: report.riskFactors,
+            accentColor: const Color(0xFFB86E00),
+            bgColor: const Color(0xFFFFF6E8),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // ── 섹션 3: 정책 추천 ──
+          // ── 섹션 3: 정책 추천 (그린 계열 — ✅) ──
           _buildSection(
             icon: Icons.lightbulb_outline,
             title: '정책 추천',
             content: report.policyAdvice,
+            accentColor: const Color(0xFF2E7D32),
+            bgColor: const Color(0xFFEEF7EF),
           ),
         ],
       ),
@@ -67,34 +87,59 @@ class ReportViewer extends StatelessWidget {
     required IconData icon,
     required String title,
     required String content,
+    required Color accentColor,
+    required Color bgColor,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 20, color: const Color(0xFF1E3A5F)),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E3A5F),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          content,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.6,
-            color: Colors.black87,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 18, color: accentColor),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
