@@ -28,10 +28,12 @@ final policiesProvider = Provider<List<GovernmentPolicy>>((ref) {
     GovernmentPolicy(
       id: 'temp_policy_001',
       title: '소상공인 창업 지원 사업',
-      organization: '중소벤처기업부',
+      agency: '서울신용보증재단',
+      jrsdInsttNm: '중소벤처기업부',
       category: '외식업',
-      startDate: '2026-07-01',
-      endDate: '2026-08-31',
+      summary: '초기 창업자를 위한 저금리 정책자금 및 컨설팅을 지원합니다.',
+      startDate: '2026-07-03',
+      endDate: '2026-08-17',
       url: 'https://www.bizinfo.go.kr',
     ),
   ];

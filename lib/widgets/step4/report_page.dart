@@ -3,14 +3,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // Task 3-6 ⭐ 추가
 import 'package:surbi_web/providers/score_provider.dart';
 import 'report_loading.dart';
 import 'report_viewer.dart';
 
-/// Task 3-5 — "로딩이냐 완료냐"를 스스로 판단해서
-/// ReportLoading 또는 ReportViewer를 보여주는 중간 관리자 위젯
+/// Task 3-5 — "로딩/완료"를 스스로 판별
+/// ReportLoading 또는 ReportViewer를 보여주는 중간 관리 위젯
 class ReportPage extends ConsumerStatefulWidget {
-  const ReportPage({super.key});
+  final String buildingId; // Task 3-6 ⭐ 추가
+
+  const ReportPage({super.key, required this.buildingId}); // Task 3-6 ⭐ 수정
 
   @override
   ConsumerState<ReportPage> createState() => _ReportPageState();
@@ -90,9 +93,9 @@ class _ReportPageState extends ConsumerState<ReportPage> {
         height: 52,
         child: OutlinedButton(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('지원사업 목록은 준비 중이에요 (Task 3-6)')),
-            );
+            context.push(
+              '/step4/${widget.buildingId}/policies',
+            ); // ⭐ SnackBar 대신 실제 이동
           },
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Color(0xFF1E3A5F)),

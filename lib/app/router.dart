@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../views/step1_region_page.dart'; // ⭐ 새로 추가
 import '../views/step4_score_page.dart'; // ⭐ 새로 추가
+import '../views/policy_list_page.dart'; // ⭐ Task 3-6 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -86,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final buildingId = state.pathParameters['buildingId']!;
           return Step4ScorePage(buildingId: buildingId);
         },
+      ),
+
+      // Step 4 부속: 정부 지원사업 추천 카드 리스트
+      // buildingId는 지금 당장 policiesProvider에서 안 쓰지만,
+      // 추후 API 연동(Task 4-6) 시 지역/카테고리 필터링 근거로 사용 예정
+      GoRoute(
+        path: '/step4/:buildingId/policies',
+        builder: (context, state) => const PolicyListPage(),
       ),
     ],
   );

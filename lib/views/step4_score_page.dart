@@ -74,7 +74,9 @@ class Step4ScorePage extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ReportPage(),
+                        builder: (context) => ReportPage(
+                          buildingId: buildingId,
+                        ), // ⭐ const 빼고, buildingId 전달
                       ),
                     );
                   },
