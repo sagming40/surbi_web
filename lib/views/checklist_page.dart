@@ -22,6 +22,17 @@ class ChecklistPage extends ConsumerWidget {
       appBar: const SurbiAppBar(title: '창업 준비 체크리스트'),
       body: Column(
         children: [
+          // ⭐ 추가 — 임시 안내 배너(진행률 바 위/Firestore 연동 전)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            color: SurbiColors.accentTint,
+            child: const Text(
+              '⚠️ 현재는 임시 저장이며 새로고침 시 초기화됩니다',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ),
           const ChecklistProgressBar(), // ⭐ '진행률' 바
           Expanded(
             child: items.isEmpty

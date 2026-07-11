@@ -34,6 +34,13 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
   ];
 
   // ⭐ 체크 토글 메서드 — 체크 표시
+  // TODO(Task 2-5): Firestore 연동 시 이 메서드 안에서 상태 변경 후
+  //   FirebaseFirestore.instance
+  //     .collection('users').doc(uid)
+  //     .collection('checklist_progress').doc(itemId)
+  //     .set({'isChecked': !item.isChecked})
+  //   같은 방식으로 원격 저장도 함께 호출 예정.
+  //   지금은 로컬 state만 변경 (새로고침 시 초기화됨 — 의도된 동작)
   void toggleCheck(String itemId) {
     state = [
       for (final item in state)
