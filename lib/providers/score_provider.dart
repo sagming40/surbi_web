@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:surbi_web/models/score_result.dart';
 import 'package:surbi_web/models/government_policy.dart';
 import 'package:surbi_web/models/report.dart';
-import 'package:surbi_web/models/checklist_item.dart';
 
 /// AI 창업 점수 + SHAP 결과 — 임시 데이터 직접 반환 (B안 원칙)
 /// TODO: GET /areas/{id}/score API 연동 후 FutureProvider로 교체 예정 (Task 4-6)
@@ -51,25 +50,4 @@ final reportProvider = Provider<Report>((ref) {
     policyAdvice: '소상공인 창업 지원 사업 등 관련 정책자금 활용을 검토해보세요.',
     createdAt: '2026-07-10',
   );
-});
-
-/// 체크리스트 — 임시 데이터 직접 반환 (B안 원칙)
-/// LLM 보고서 내용 일부 / 완료 여부는 Firestore 저장 예정 (Task 2-5)
-final checklistProvider = Provider<List<ChecklistItem>>((ref) {
-  return const [
-    ChecklistItem(
-      itemId: 'temp_check_001',
-      content: '현장 방문 후 유동인구 체감 확인하기',
-      category: '현장조사',
-      isChecked: false,
-      order: 1,
-    ),
-    ChecklistItem(
-      itemId: 'temp_check_002',
-      content: '정책 지원사업 신청 자격 요건 확인하기',
-      category: '자금준비',
-      isChecked: false,
-      order: 2,
-    ),
-  ];
 });
