@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
-import '../views/step1_region_page.dart'; // ⭐ 새로 추가
-import '../views/step4_score_page.dart'; // ⭐ 새로 추가
-import '../views/policy_list_page.dart'; // ⭐ Task 3-6 추가
+import 'package:surbi_web/views/step1_region_page.dart';
+import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
+import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
+import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -95,6 +96,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/step4/:buildingId/policies',
         builder: (context, state) => const PolicyListPage(),
+      ),
+
+      // Step 4 부속: 창업 행동 유도 체크리스트
+      // buildingId는 지금 당장 checklistProvider에서 안 쓰지만,
+      // policies 라우트와 동일하게 추후 API 연동(Task 4-6) 시 활용 근거로 경로에 포함
+      GoRoute(
+        path: '/step4/:buildingId/checklist',
+        builder: (context, state) => const ChecklistPage(),
       ),
     ],
   );
