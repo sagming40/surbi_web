@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart'; // Task 3-6 ⭐ 추가
 import 'package:surbi_web/providers/score_provider.dart';
+import 'package:surbi_web/widgets/common/surbi_app_bar.dart'; // Task 3-6 ⭐ 추가
 import 'report_loading.dart';
 import 'report_viewer.dart';
 
@@ -48,30 +49,7 @@ class _ReportPageState extends ConsumerState<ReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white, // ⭐ 추가
-        elevation: 0, // ⭐ 추가 (그림자 없이 깔끔하게)
-        leading: IconButton(
-          icon: const Icon(
-            Icons.chevron_left,
-            size: 30,
-            color: Color(0xFF1E3A5F),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'AI 창업 보고서',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1E3A5F),
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey.shade200, height: 1),
-        ),
-      ),
+      appBar: const SurbiAppBar(title: 'AI 창업 보고서'),
       body: _isLoading
           ? const ReportLoading()
           : ReportViewer(report: ref.read(reportProvider)),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:surbi_web/providers/score_provider.dart';
 import 'package:surbi_web/widgets/common/surbi_empty.dart';
+import 'package:surbi_web/widgets/common/surbi_app_bar.dart';
 import 'package:surbi_web/widgets/step4/policy_card.dart';
 
 class PolicyListPage extends ConsumerWidget {
@@ -14,7 +15,7 @@ class PolicyListPage extends ConsumerWidget {
     final policies = ref.watch(policiesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('정부 지원사업')),
+      appBar: const SurbiAppBar(title: '정부 지원사업'),
       body: policies.isEmpty
           ? const SurbiEmpty(message: '해당 조건에 맞는 지원사업이 없습니다.')
           : ListView.builder(
