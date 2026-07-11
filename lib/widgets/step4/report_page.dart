@@ -68,31 +68,71 @@ class _ReportPageState extends ConsumerState<ReportPage> {
       ),
       child: SizedBox(
         width: double.infinity,
-        height: 52,
-        child: OutlinedButton(
-          onPressed: () {
-            context.push(
-              '/step4/${widget.buildingId}/policies',
-            ); // ⭐ SnackBar 대신 실제 이동
-          },
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Color(0xFF1E3A5F)),
-            foregroundColor: const Color(0xFF1E3A5F),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '지원사업 자세히 보기',
-                style: TextStyle(fontWeight: FontWeight.bold),
+        height: 50,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  context.push(
+                    '/step4/${widget.buildingId}/policies',
+                  ); // ⭐ SnackBar 대신 실제 이동
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF1E3A5F)),
+                  foregroundColor: const Color(0xFF1E3A5F),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '지원사업 보기',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 22),
+                  ],
+                ),
               ),
-              SizedBox(width: 6),
-              Icon(Icons.chevron_right, size: 26),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  // ⭐ Task 3-7 신규 — 체크리스트 화면 진입
+                  context.push('/step4/${widget.buildingId}/checklist');
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF1E3A5F)),
+                  foregroundColor: const Color(0xFF1E3A5F),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '체크리스트 보기',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 22),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
