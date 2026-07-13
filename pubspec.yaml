@@ -17,6 +17,8 @@ dependencies:
     sdk: flutter                # ← Task 1-4 추가 ^대신 sdk: flutter
   intl: ^0.20.3                 # ← Task 3-4 추가 > 매출 표시(예: 8500000원 → 8,500,000원)
   url_launcher: ^6.3.1          # ← Task 3-6 추가 > 정책 카드 외부 링크 열기
+  web: ^1.1.1                   # ← Task 3-3 추가 HTML 최신 버전 사용 권고
+  fl_chart: ^0.68.0             # ← Task 3-2 추가 (Step 2 차트용)  
 
 dev_dependencies:
   flutter_test:

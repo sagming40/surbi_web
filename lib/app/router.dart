@@ -5,6 +5,10 @@ import 'package:surbi_web/views/step1_region_page.dart';
 import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
 import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
+// import 'package:surbi_web/views/step3_map_page.dart';
+import '../views/step1_region_page.dart'; // ⭐ 새로 추가
+import '../views/step3_map_page.dart'; // ⭐ 새로 추가
+import '../views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -67,17 +71,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step2/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return PlaceholderPage(
-            label: 'Step 2: 상권 분석 (준비중)\n지역코드: $regionCode',
-          );
+          return Step2DashboardPage(regionCode: regionCode); // ⭐ 교체
         },
       ),
 
       // Step 3: 지도 모드 — 건물 탐색
+      // :regionCode = 행정동 코드 (Step2에서 넘어옴)
       GoRoute(
-        path: '/step3/map',
-        builder: (context, state) =>
-            const PlaceholderPage(label: 'Step 3: 지도 모드 (준비중)'),
+        path: '/step3/:regionCode',
+        builder: (context, state) {
+          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          return Step3MapPage(regionCode: regionCode);
+        },
       ),
 
       // Step 4: AI 창업 점수 + LLM 보고서
