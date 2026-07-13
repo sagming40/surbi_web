@@ -1,30 +1,16 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// 기본적인 스모크 테스트 — 앱이 정상적으로 켜지고 시작 화면이 뜨는지 확인
 
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:surbi_web/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Surbi 앱이 정상적으로 시작화면을 보여준다', (WidgetTester tester) async {
+    // ProviderScope로 감싼 SurbiApp을 화면에 띄움
+    await tester.pumpWidget(const ProviderScope(child: SurbiApp()));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // 시작 화면(router.dart의 '/' 경로)에 '분 시작' 텍스트가 보이는지 확인
+    expect(find.text('Surbi 시작'), findsOneWidget);
   });
 }
