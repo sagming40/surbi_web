@@ -185,7 +185,7 @@ class Step2DashboardPage extends ConsumerWidget {
       child: InkWell(
         onTap: () {
           ref.read(selectedAreaProvider.notifier).state = area;
-          context.push('/step3/map/${area.regionCode}');
+          context.push('/step3/${area.regionCode}');
         },
         borderRadius: BorderRadius.circular(SurbiRadius.card),
         splashColor: SurbiColors.accent.withOpacity(0.1),
