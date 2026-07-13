@@ -156,7 +156,9 @@ class Step2DashboardPage extends ConsumerWidget {
                         backDrawRodData: BackgroundBarChartRodData(
                           show: true,
                           toY: 20000,
-                          color: SurbiColors.placeholderGray.withOpacity(0.3),
+                          color: SurbiColors.placeholderGray.withValues(
+                            alpha: 0.3,
+                          ),
                           // ⭐ 막대그래프 수정
                         ),
                       ),
@@ -188,8 +190,8 @@ class Step2DashboardPage extends ConsumerWidget {
           context.push('/step3/${area.regionCode}');
         },
         borderRadius: BorderRadius.circular(SurbiRadius.card),
-        splashColor: SurbiColors.accent.withOpacity(0.1),
-        highlightColor: SurbiColors.accent.withOpacity(0.05),
+        splashColor: SurbiColors.accent.withValues(alpha: 0.1),
+        highlightColor: SurbiColors.accent.withValues(alpha: 0.05),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
