@@ -2,13 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:surbi_web/views/step1_region_page.dart';
+import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
+import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
 import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
-// import 'package:surbi_web/views/step3_map_page.dart';
-import '../views/step1_region_page.dart'; // ⭐ 새로 추가
-import '../views/step3_map_page.dart'; // ⭐ 새로 추가
-import '../views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
