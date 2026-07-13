@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // import 'package:surbi_web/views/step3_map_page.dart';
 import '../views/step1_region_page.dart'; // ⭐ 새로 추가
 import '../views/step3_map_page.dart'; // ⭐ 새로 추가
+import '../views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -66,9 +67,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step2/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return PlaceholderPage(
-            label: 'Step 2: 상권 분석 (준비중)\n지역코드: $regionCode',
-          );
+          return Step2DashboardPage(regionCode: regionCode); // ⭐ 교체
         },
       ),
 
