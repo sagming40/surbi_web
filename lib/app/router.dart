@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../views/step1_region_page.dart'; // ⭐ 새로 추가
+import '../views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -64,17 +65,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step2/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return PlaceholderPage(
-            label: 'Step 2: 상권 분석 (준비중)\n지역코드: $regionCode',
-          );
+          return Step2DashboardPage(regionCode: regionCode); // ⭐ 교체
         },
       ),
 
       // Step 3: 지도 모드 — 건물 탐색
       GoRoute(
-        path: '/step3/map',
-        builder: (context, state) =>
-            const PlaceholderPage(label: 'Step 3: 지도 모드 (준비중)'),
+        path: '/step3/map/:regionCode',
+        builder: (context, state) {
+          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          return PlaceholderPage(
+            label: 'Step 3: 지도 모드 (준비중)\n지역코드: $regionCode',
+          );
+        },
       ),
 
       // Step 4: AI 창업 점수 + LLM 보고서
