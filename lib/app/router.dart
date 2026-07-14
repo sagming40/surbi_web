@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
 import 'package:surbi_web/views/step1_region_page.dart';
 import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
@@ -47,20 +48,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 랜딩 페이지
       GoRoute(
         path: '/',
-        builder: (context, state) => const PlaceholderPage(label: 'Surbi 시작'),
+        builder: (context, state) =>
+            const ResponsiveLayout(child: PlaceholderPage(label: 'Surbi 시작')),
       ),
 
       // 로그인 페이지 (카카오·네이버 소셜 로그인 — EPIC 2에서 구현)
       GoRoute(
         path: '/login',
-        builder: (context, state) =>
-            const PlaceholderPage(label: '로그인 화면 (준비중)'),
+        builder: (context, state) => const ResponsiveLayout(
+          child: PlaceholderPage(label: '로그인 화면 (준비중)'),
+        ),
       ),
 
       // Step 1: 지역·카테고리 선택
       GoRoute(
         path: '/step1',
-        builder: (context, state) => const Step1RegionPage(), // ⭐ 교체
+        builder: (context, state) =>
+            const ResponsiveLayout(child: Step1RegionPage()), // ⭐ 교체
       ),
 
       // Step 2: 상권 분석 대시보드
@@ -69,7 +73,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step2/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return Step2DashboardPage(regionCode: regionCode); // ⭐ 교체
+          return ResponsiveLayout(
+            child: Step2DashboardPage(regionCode: regionCode),
+          ); // ⭐ 교체
         },
       ),
 
@@ -79,7 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step3/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return Step3MapPage(regionCode: regionCode);
+          return ResponsiveLayout(child: Step3MapPage(regionCode: regionCode));
         },
       ),
 
@@ -89,7 +95,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step4/:buildingId',
         builder: (context, state) {
           final buildingId = state.pathParameters['buildingId']!;
-          return Step4ScorePage(buildingId: buildingId);
+          return ResponsiveLayout(
+            child: Step4ScorePage(buildingId: buildingId),
+          );
         },
       ),
 
@@ -98,7 +106,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 추후 API 연동(Task 4-6) 시 지역/카테고리 필터링 근거로 사용 예정
       GoRoute(
         path: '/step4/:buildingId/policies',
-        builder: (context, state) => const PolicyListPage(),
+        builder: (context, state) =>
+            const ResponsiveLayout(child: PolicyListPage()),
       ),
 
       // Step 4 부속: 창업 행동 유도 체크리스트
@@ -106,7 +115,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // policies 라우트와 동일하게 추후 API 연동(Task 4-6) 시 활용 근거로 경로에 포함
       GoRoute(
         path: '/step4/:buildingId/checklist',
-        builder: (context, state) => const ChecklistPage(),
+        builder: (context, state) =>
+            const ResponsiveLayout(child: ChecklistPage()),
       ),
     ],
   );

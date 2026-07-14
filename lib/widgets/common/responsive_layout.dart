@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 
 // 모든 화면을 이 위젯으로 감싸면
-// PC에서는 500px로 제한, 모바일에서는 꽉 차게
+// 화면마다 원하는 최대 폭을 각자 지정할 수 있음
 class ResponsiveLayout extends StatelessWidget {
   final Widget child;
-  const ResponsiveLayout({super.key, required this.child});
+  final double maxWidth; // ⭐ 추가 — 화면마다 다른 값을 줄 수 있도록
 
-  static const double maxWidth = 500;
+  const ResponsiveLayout({
+    super.key,
+    required this.child,
+    this.maxWidth = 500, // ⭐ 기본값 500 — 안 넘겨주면 지금까지랑 동일하게 동작
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF5F5F5), // PC에서 보이는 양 옆 배경색
+      color: SurbiColors.primary,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: maxWidth),
+          // ⭐ const 제거 (런타임 값이라)
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: child,
         ),
       ),
