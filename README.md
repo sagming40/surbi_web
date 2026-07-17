@@ -40,8 +40,10 @@
 - **Flutter Web** — 단일 코드베이스 웹 앱
 - **Riverpod** — 전역 상태 관리
 - **go_router** — 웹 네비게이션 (URL 라우팅)
-- **Firebase Auth** — 카카오 · 네이버 소셜 로그인
+- **Firebase Auth** — 카카오 · 네이버 소셜 로그인 (Custom Token 방식)
 - **Cloud Firestore** — 사용자 데이터 저장
+- **fl_chart** — 상권 데이터 시각화
+- **Kakao Maps SDK** — `dart:js_interop` 기반 직접 연동
 
 ### Backend (담당: 최민수)
 - **FastAPI** (Python 3.12) — REST API 서버
@@ -63,15 +65,32 @@
 ## 📁 프로젝트 구조 (Frontend)
 
 ```
-lib/
-├── app/              # 라우팅, 테마
-├── models/           # 데이터 모델
-├── services/         # API 통신, Firebase Auth
-├── providers/        # Riverpod 상태 관리
-├── views/            # 화면 (페이지 단위)
-└── widgets/          # 재사용 컴포넌트
-    └── common/       # 로딩 / 에러 / 빈화면 공통 위젯
+surbi_web/
+├── docs/             # 프로젝트 문서 (아래 '문서' 섹션 참고)
+└── lib/
+    ├── app/          # 라우팅, 테마
+    ├── models/       # 데이터 모델
+    ├── services/     # API 통신, Firebase Auth, 카카오맵 interop
+    ├── providers/    # Riverpod 상태 관리
+    ├── views/        # 화면 (페이지 단위)
+    └── widgets/      # 재사용 컴포넌트
+        └── common/   # 로딩 / 에러 / 빈화면 / 공용 AppBar · Card
 ```
+
+---
+
+## 📚 문서
+
+| 문서 | 내용 |
+|------|------|
+| [FE_WORKFLOW.md](docs/FE_WORKFLOW.md) | **현재 진행 상황 + 다음 할 일** — EPIC · Task 단위 개발 계획 |
+| [FE_DEVLOG.md](docs/FE_DEVLOG.md) | **개발 일지** — 날짜별 작업 기록, 트러블슈팅, 프로젝트 상시 규칙 |
+| [API_명세_협의_요청사항.md](docs/API_명세_협의_요청사항.md) | 백엔드 API 명세 협의 요청 목록 (FE → BE) |
+| [BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md) | Git 브랜치 운영 전략 |
+| [DESIGN.md](docs/DESIGN.md) | 디자인 가이드 (브랜드 컬러, 컴포넌트 규칙) |
+
+> 💡 문서는 **시제(時制)** 기준으로 나눠 관리합니다.
+> `FE_WORKFLOW` = 현재·미래(덮어씀) / `FE_DEVLOG` = 과거(append만)
 
 ---
 
@@ -87,9 +106,11 @@ lib/
 # 의존성 설치
 flutter pub get
 
-# 웹 실행
-flutter run -d chrome
+# 웹 실행 (포트 고정 — 카카오맵 SDK 도메인 등록 때문)
+flutter run -d chrome --web-port=5000
 ```
+
+> ⚠️ 카카오맵 JavaScript SDK는 **등록된 도메인에서만 동작**하므로 포트를 고정해야 합니다.
 
 ---
 
@@ -120,13 +141,15 @@ flutter run -d chrome
 
 ## 📝 개발 현황
 
-> 워크플로우 상세 내용은 팀 Notion을 참고하세요.
+> 상세 진행 상황은 **[FE_WORKFLOW.md](docs/FE_WORKFLOW.md)** 참고
 
-- [x] EPIC 1 — 환경 구축 & 기반 설계 ✅ 완료
-- [ ] EPIC 2 — 인증 & 사용자 관리
-- [ ] EPIC 3 — Step 1~4 핵심 화면 개발
-- [ ] EPIC 4 — 백엔드 API 연동
-- [ ] EPIC 5 — 품질 검증 & 배포
+| EPIC | 내용 | 진행 | 상태 |
+|------|------|------|------|
+| 1 | 환경 구축 & 기반 설계 | 7 / 7 | ✅ 완료 |
+| 2 | 인증 & 사용자 관리 | 1 / 5 | 🔄 진행 중 |
+| 3 | Step 1~4 핵심 화면 개발 | 7 / 7 | ✅ 완료 |
+| 4 | 백엔드 API 연동 | 0 / 6 | 🔄 명세 협의 중 |
+| 5 | 품질 검증 & 배포 | 0 / 4 | ⏳ 대기 |
 
 ---
 
