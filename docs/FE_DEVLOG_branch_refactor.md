@@ -568,6 +568,8 @@ Chrome DevTools로 확인해보니 Flutter Web CanvasKit의 `flt-clip` 요소가
 
 ---
 
+## 2026-07-17 · 문서 구조 전면 개편 
+
 ### 오늘 한 일
 
 **① `docs/` 폴더 신설 — 문서를 한곳으로**
