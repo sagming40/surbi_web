@@ -5,6 +5,7 @@ import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
 import 'package:surbi_web/views/step1_region_page.dart';
 import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
+import 'package:surbi_web/widgets/step4/step4_shell.dart'; // ⭐ Phase 3 추가
 
 // ⚠️ Phase 2 임시 조치 — 실제 화면은 지금 PlaceholderPage로 대체됨
 // Phase 4에서 진짜 화면 연결할 때 아래 3개 주석 해제
@@ -106,11 +107,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 하나도 안 건드리기 위해, 진입 즉시 report 자식으로 리다이렉트
       GoRoute(
         path: '/step4/:buildingId',
-        redirect: (context, state) => '${state.matchedLocation}/report',
+        redirect: (context, state) {
+          final buildingId = state.pathParameters['buildingId']!;
+          // ⚠️ redirect는 report/policies/checklist 전부의 부모.
+          // 자식으로 이동할 때마다 매번 새로고침됨. "이미 자식 경로에 있는 경우"엔
+          // redirect하면 안 되므로, 정확히 부모 경로 그 자체일 때만 이동시킴
+          if (state.uri.path == '/step4/$buildingId') {
+            return '/step4/$buildingId/report';
+          }
+          return null;
+        },
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              return ResponsiveLayout(child: navigationShell);
+              final buildingId = state.pathParameters['buildingId']!;
+              return ResponsiveLayout(
+                maxWidth: 1200, // ⭐ Step4는 2컬럼이라 기본 500보다 넓게 필요
+                child: Step4Shell(
+                  buildingId: buildingId,
+                  navigationShell: navigationShell,
+                ),
+              );
             },
             branches: [
               // Branch 0: Step 4-1(게이지) + Step 4-2(LLM 보고서)
