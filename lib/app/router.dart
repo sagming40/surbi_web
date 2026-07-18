@@ -5,9 +5,12 @@ import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
 import 'package:surbi_web/views/step1_region_page.dart';
 import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
-import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
-import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
-import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
+
+// ⚠️ Phase 2 임시 조치 — 실제 화면은 지금 PlaceholderPage로 대체됨
+// Phase 4에서 진짜 화면 연결할 때 아래 3개 주석 해제
+// import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
+// import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
+// import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -36,6 +39,10 @@ class PlaceholderPage extends StatelessWidget {
     );
   }
 }
+
+final _reportNavigatorKey = GlobalKey<NavigatorState>();
+final _policiesNavigatorKey = GlobalKey<NavigatorState>();
+final _checklistNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   // ref는 지금 사용 안 함
@@ -89,34 +96,65 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Step 4: AI 창업 점수 + LLM 보고서
-      // :buildingId = 선택한 건물 고유 ID (예: /step4/bld_00123)
+      // ══════════════════════════════════════════════
+      // Step 4 — StatefulShellRoute 리팩터링 (Phase 2)
+      // report/policies/checklist가 형제 자식으로 전환됨
+      // ══════════════════════════════════════════════
+
+      // 기존 경로(/step4/:buildingId) 호환용 redirect
+      // Step 3에서 context.push('/step4/$buildingId')로 넘어오는 코드를
+      // 하나도 안 건드리기 위해, 진입 즉시 report 자식으로 리다이렉트
       GoRoute(
         path: '/step4/:buildingId',
-        builder: (context, state) {
-          final buildingId = state.pathParameters['buildingId']!;
-          return ResponsiveLayout(
-            child: Step4ScorePage(buildingId: buildingId),
-          );
-        },
-      ),
+        redirect: (context, state) => '${state.matchedLocation}/report',
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return ResponsiveLayout(child: navigationShell);
+            },
+            branches: [
+              // Branch 0: Step 4-1(게이지) + Step 4-2(LLM 보고서)
+              StatefulShellBranch(
+                navigatorKey: _reportNavigatorKey,
+                routes: [
+                  GoRoute(
+                    path: 'report', // ⚠️ 앞에 '/' 없음 — 부모 경로에 이어붙는 상대경로
+                    builder: (context, state) {
+                      final buildingId = state.pathParameters['buildingId']!;
+                      return PlaceholderPage(
+                        label: 'AI 점수 + 보고서\n(buildingId: $buildingId)',
+                      );
+                    },
+                  ),
+                ],
+              ),
 
-      // Step 4 부속: 정부 지원사업 추천 카드 리스트
-      // buildingId는 지금 당장 policiesProvider에서 안 쓰지만,
-      // 추후 API 연동(Task 4-6) 시 지역/카테고리 필터링 근거로 사용 예정
-      GoRoute(
-        path: '/step4/:buildingId/policies',
-        builder: (context, state) =>
-            const ResponsiveLayout(child: PolicyListPage()),
-      ),
+              // Branch 1: 정부 지원사업 카드 리스트
+              StatefulShellBranch(
+                navigatorKey: _policiesNavigatorKey,
+                routes: [
+                  GoRoute(
+                    path: 'policies',
+                    builder: (context, state) =>
+                        const PlaceholderPage(label: '정부 지원사업 (준비중)'),
+                  ),
+                ],
+              ),
 
-      // Step 4 부속: 창업 행동 유도 체크리스트
-      // buildingId는 지금 당장 checklistProvider에서 안 쓰지만,
-      // policies 라우트와 동일하게 추후 API 연동(Task 4-6) 시 활용 근거로 경로에 포함
-      GoRoute(
-        path: '/step4/:buildingId/checklist',
-        builder: (context, state) =>
-            const ResponsiveLayout(child: ChecklistPage()),
+              // Branch 2: 창업 행동 유도 체크리스트
+              StatefulShellBranch(
+                navigatorKey: _checklistNavigatorKey,
+                routes: [
+                  GoRoute(
+                    path: 'checklist',
+                    builder: (context, state) =>
+                        const PlaceholderPage(label: '체크리스트 (준비중)'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
