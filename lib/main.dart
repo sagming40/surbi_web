@@ -7,6 +7,7 @@ import 'services/kakao_map_view_registry.dart'; // Task 3-3 추가
 void main() {
   usePathUrlStrategy(); // # 없는 깔끔한 주소 사용
   registerKakaoMapView(); // 추가 — 앱 켜지자마자 콘센트 등록
+  registerKakaoMapViewStep1(); // ⬅️ 추가 (Step1용)
 
   runApp(
     // Task 1-3 추가 ProviderScope로 앱 전체를 감쌈

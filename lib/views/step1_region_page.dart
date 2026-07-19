@@ -5,6 +5,7 @@ import 'package:surbi_web/models/region.dart';
 import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/providers/region_provider.dart';
 import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
+import 'package:surbi_web/services/kakao_map_view_registry.dart'; // ⭐ 추가
 
 /// Step 1: 지역 및 카테고리 선택 화면
 class Step1RegionPage extends ConsumerWidget {
@@ -15,6 +16,14 @@ class Step1RegionPage extends ConsumerWidget {
     final guNameList = ref.watch(guNameListProvider);
     final categories = ref.watch(categoryListProvider);
     final selection = ref.watch(regionNotifierProvider);
+
+    // ⭐ 추가 — selectedGu가 바뀔 때마다(그때만!) 마커를 다시 찍음
+    ref.listen<RegionSelection>(regionNotifierProvider, (previous, next) {
+      if (previous?.selectedGu != next.selectedGu) {
+        final regionsInGu = ref.read(regionsByGuProvider(next.selectedGu));
+        addRegionMarkers(regionsInGu);
+      }
+    });
 
     return Scaffold(
       backgroundColor: SurbiColors.primary,
@@ -27,7 +36,7 @@ class Step1RegionPage extends ConsumerWidget {
               const SizedBox(height: 24),
               _buildCategoryButtons(ref, categories, selection),
               const SizedBox(height: 24),
-              _buildHeatmapPlaceholder(),
+              _buildMapArea(), // ⭐ 이름 변경: _buildHeatmapPlaceholder → _buildMapArea
               const SizedBox(height: 24),
               _buildStartButton(context, selection),
             ],
@@ -126,30 +135,21 @@ class Step1RegionPage extends ConsumerWidget {
     );
   }
 
-  /// 지역 히트맵 영역 (현재는 placeholder)
-  /// TODO: districts.geom 컬럼 적재 완료 후 실제 히트맵 렌더링으로 교체 예정 (Task 4-3)
-  Widget _buildHeatmapPlaceholder() {
+  /// 지역 지도 영역 — Kakao 지도 렌더링 (기존 히트맵 placeholder 대체)
+  /// TODO: 실제 색칠 히트맵은 districts.geom 컬럼 적재 완료 후 별도 구현 예정 (Task 4-3)
+  Widget _buildMapArea() {
     return Container(
       width: double.infinity,
       height: 300,
+      clipBehavior: Clip.antiAlias, // 모서리를 둥글게 자르되, 내부 지도까지 잘리게 함
       decoration: BoxDecoration(
         color: SurbiColors.placeholderGray,
         borderRadius: BorderRadius.circular(SurbiRadius.card),
       ),
-      child: Center(
-        child: Text(
-          '히트맵 영역(Step 1)',
-          style: TextStyle(
-            color: SurbiColors.textGray,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
+      child: const HtmlElementView(viewType: 'kakao-map-view-step1'),
     );
   }
 
-  /// 창업 카테고리 선택 버튼 목록
   Widget _buildCategoryButtons(
     WidgetRef ref,
     List<Map<String, String>> categories,

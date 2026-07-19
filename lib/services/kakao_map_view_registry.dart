@@ -4,7 +4,8 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'dart:js_interop'; // 추가!
 import 'kakao_map_interop.dart'; // 추가!
-import '../models/building.dart';
+import 'package:surbi_web/models/building.dart';
+import 'package:surbi_web/models/region.dart'; // ⭐ 추가
 
 // ⬇️ 추가 — 지도 객체 전역 변수
 KakaoMap? kakaoMapInstance;
@@ -117,4 +118,98 @@ String _pinDataUri({required double size, required String color}) {
       '<circle cx="12" cy="12" r="5" fill="white"/>'
       '</svg>';
   return 'data:image/svg+xml,${Uri.encodeComponent(svg)}';
+}
+
+// ⬇️ 추가 — Step1 지도 인스턴스 (Step3의 kakaoMapInstance와 별개로 관리)
+KakaoMap? kakaoMapInstanceStep1;
+
+/// Step 1 히트맵 자리에 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
+/// main() 앱 시작할 때 registerKakaoMapView()와 함께 딱 한 번만 호출
+void registerKakaoMapViewStep1() {
+  ui_web.platformViewRegistry.registerViewFactory('kakao-map-view-step1', (
+    int viewId,
+  ) {
+    final div = web.HTMLDivElement()
+      ..id = 'kakao-map-step1-$viewId'
+      ..style.width = '100%'
+      ..style.height = '100%';
+
+    // 서울시청 좌표를 기본 중심점으로 (아직 구를 선택하기 전 초기 화면)
+    final options = KakaoMapOptions(
+      center: KakaoLatLng(37.5665, 126.9780),
+      level: 8, // 서울 전체가 보이도록 레벨을 좀 더 낯춤 (숫자가 클수록 축소)
+    );
+    final map = KakaoMap(div, options);
+    kakaoMapInstanceStep1 = map;
+
+    final observer = web.ResizeObserver(
+      ((JSArray<JSAny?> entries, web.ResizeObserver obs) {
+        map.relayout();
+      }).toJS,
+    );
+    observer.observe(div);
+
+    return div;
+  });
+}
+
+// ⬇️ 추가 — Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
+//    (구를 새로 선택할 때, 이 리스트를 보고 이전 마커부터 지움)
+List<KakaoMarker> _step1RegionMarkers = [];
+
+/// Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
+Future<void> addRegionMarkers(List<Region> regions) async {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+
+  for (final marker in _step1RegionMarkers) {
+    marker.setMap(null);
+  }
+  _step1RegionMarkers = [];
+
+  if (regions.isEmpty) return; // 동 목록이 비었으면(구 선택 해제 등) 종료
+
+  await Future.delayed(const Duration(milliseconds: 300));
+  map.relayout();
+
+  final bounds = KakaoLatLngBounds();
+
+  final normalImage = KakaoMarkerImage(
+    _pinDataUri(size: 28, color: '#1E3A5F'),
+    KakaoSize(28, 35),
+  );
+  final hoverImage = KakaoMarkerImage(
+    _pinDataUri(size: 38, color: '#1E3A5F'),
+    KakaoSize(38, 48),
+  );
+
+  for (final region in regions) {
+    final position = KakaoLatLng(region.lat, region.lng);
+
+    final marker = KakaoMarker(
+      KakaoMarkerOptions(position: position, image: normalImage),
+    );
+    marker.setMap(map);
+
+    kakaoAddListener(
+      marker,
+      'mouseover',
+      (() {
+        marker.setImage(hoverImage);
+      }).toJS,
+    );
+
+    kakaoAddListener(
+      marker,
+      'mouseout',
+      (() {
+        marker.setImage(normalImage);
+      }).toJS,
+    );
+
+    _step1RegionMarkers.add(marker); // ⬅️ 추가 — 새로 만든 마커를 리스트에 저장해둠
+    bounds.extend(position);
+  }
+
+  map.setBounds(bounds);
 }
