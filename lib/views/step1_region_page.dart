@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../app/theme.dart';
-import '../providers/region_provider.dart';
+import 'package:surbi_web/models/region.dart';
+import 'package:surbi_web/app/theme.dart';
+import 'package:surbi_web/providers/region_provider.dart';
+import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
 
 /// Step 1: 지역 및 카테고리 선택 화면
 class Step1RegionPage extends ConsumerWidget {
@@ -10,9 +12,9 @@ class Step1RegionPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final districts = ref.watch(districtListProvider);
-    final categories = ref.watch(categoryListProvider); // ⭐ 새로 추가
-    final selection = ref.watch(regionNotifierProvider); // ⭐ 새로 추가
+    final guNameList = ref.watch(guNameListProvider);
+    final categories = ref.watch(categoryListProvider);
+    final selection = ref.watch(regionNotifierProvider);
 
     return Scaffold(
       backgroundColor: SurbiColors.primary,
@@ -21,17 +23,74 @@ class Step1RegionPage extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
             children: [
-              _buildSearchField(context, ref, districts),
+              _buildGuRegionDropdowns(ref, guNameList, selection),
               const SizedBox(height: 24),
-              _buildCategoryButtons(ref, categories, selection), // ⭐ 새로 추가
+              _buildCategoryButtons(ref, categories, selection),
               const SizedBox(height: 24),
-              _buildHeatmapPlaceholder(), // ⭐ 새로 추가
+              _buildHeatmapPlaceholder(),
               const SizedBox(height: 24),
-              _buildStartButton(context, selection), // ⭐ 새로 추가
+              _buildStartButton(context, selection),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// regions 목록에서 code와 일치하는 Region을 찾아 반환.
+  /// 없으면 null — collection 패키지의 firstOrNull 대신 기본 문법으로 직접 구현
+  /// (pubspec.yaml에 collection이 정식 등록돼 있지 않아, 이 작업만으로 의존성을
+  ///  새로 추가하지 않기 위한 선택)
+  Region? _findSelectedRegion(List<Region> regions, String? code) {
+    if (code == null) return null;
+    for (final region in regions) {
+      if (region.regionCode == code) return region;
+    }
+    return null;
+  }
+
+  /// 구 → 동 2단계 드롭다운 (커스텀 SurbiDropdown 사용)
+  Widget _buildGuRegionDropdowns(
+    WidgetRef ref,
+    List<String> guNameList,
+    RegionSelection selection,
+  ) {
+    final regionsInGu = ref.watch(regionsByGuProvider(selection.selectedGu));
+    final selectedRegion = _findSelectedRegion(
+      regionsInGu,
+      selection.regionCode,
+    );
+
+    return Row(
+      children: [
+        Expanded(
+          child: SurbiDropdown<String>(
+            value: selection.selectedGu,
+            hintText: '구 선택',
+            items: guNameList,
+            labelBuilder: (gu) => gu,
+            onChanged: (guName) {
+              ref.read(regionNotifierProvider.notifier).selectGu(guName);
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SurbiDropdown<Region>(
+            value: selectedRegion,
+            hintText: '동 선택',
+            items: regionsInGu,
+            labelBuilder: (region) => region.regionName,
+            onChanged: selection.selectedGu == null
+                ? null
+                : (region) {
+                    ref
+                        .read(regionNotifierProvider.notifier)
+                        .selectRegion(region.regionCode);
+                  },
+          ),
+        ),
+      ],
     );
   }
 
@@ -129,46 +188,6 @@ class Step1RegionPage extends ConsumerWidget {
           ),
         );
       }).toList(),
-    );
-  }
-
-  /// 행정동 검색 자동완성 필드
-  Widget _buildSearchField(
-    BuildContext context,
-    WidgetRef ref,
-    List<Map<String, String>> districts,
-  ) {
-    return Autocomplete<Map<String, String>>(
-      optionsBuilder: (TextEditingValue value) {
-        if (value.text.isEmpty) {
-          return const Iterable<Map<String, String>>.empty();
-        }
-        return districts.where(
-          (district) => district['name']!.contains(value.text),
-        );
-      },
-      displayStringForOption: (option) => option['name']!,
-      onSelected: (Map<String, String> selection) {
-        ref
-            .read(regionNotifierProvider.notifier)
-            .selectRegion(selection['code']!);
-      },
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          decoration: InputDecoration(
-            hintText: '시/구/동을 검색하세요',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(SurbiRadius.pill),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        );
-      },
     );
   }
 }
