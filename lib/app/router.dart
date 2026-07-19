@@ -2,16 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
+import 'package:surbi_web/widgets/step4/step4_shell.dart'; // ⭐ Phase 3 추가
 import 'package:surbi_web/views/step1_region_page.dart';
 import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
-import 'package:surbi_web/widgets/step4/step4_shell.dart'; // ⭐ Phase 3 추가
-
-// ⚠️ Phase 2 임시 조치 — 실제 화면은 지금 PlaceholderPage로 대체됨
-// Phase 4에서 진짜 화면 연결할 때 아래 3개 주석 해제
-// import 'package:surbi_web/views/step4_score_page.dart'; // ⭐ 새로 추가
-// import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
-// import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
+import 'package:surbi_web/widgets/step4/report_page.dart';
+import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
+import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
 
 // 테스트용 import
 // import '../widgets/common/surbi_loading.dart';
@@ -51,7 +48,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   // redirect 로직(로그인 전이면 /login으로, 로그인 후면 /step1으로) 추가 예정
 
   return GoRouter(
-    initialLocation: '/',
     routes: [
       // 랜딩 페이지
       GoRoute(
@@ -138,9 +134,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'report', // ⚠️ 앞에 '/' 없음 — 부모 경로에 이어붙는 상대경로
                     builder: (context, state) {
                       final buildingId = state.pathParameters['buildingId']!;
-                      return PlaceholderPage(
-                        label: 'AI 점수 + 보고서\n(buildingId: $buildingId)',
-                      );
+                      return ReportPage(buildingId: buildingId);
                     },
                   ),
                 ],
@@ -152,8 +146,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'policies',
-                    builder: (context, state) =>
-                        const PlaceholderPage(label: '정부 지원사업 (준비중)'),
+                    builder: (context, state) => const PolicyListPage(),
                   ),
                 ],
               ),
@@ -164,8 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'checklist',
-                    builder: (context, state) =>
-                        const PlaceholderPage(label: '체크리스트 (준비중)'),
+                    builder: (context, state) => const ChecklistPage(),
                   ),
                 ],
               ),
