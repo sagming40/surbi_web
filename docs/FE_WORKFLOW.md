@@ -22,7 +22,7 @@
 | 순위 | 작업 | 상태 | 비고 |
 | --- | --- | --- | --- |
 | **1** | 7/13 회의 지시 ②③④ 반영 착수 | ⏳ 대기 | Step1 드롭다운+히트맵, Step3 BottomSheet — 새 브랜치 예정 |
-| 2 | `feature/frontend-step4-refactor` → main 병합 | ⏳ 대기 | PR #4~#6과 함께 일괄 병합 예정 · 문서 파일 직접 복붙 이력 있어 병합 시 충돌 가능 |
+| 2 | `feature/frontend-step4-refactor` PR 생성 → main 병합 | ⏳ 대기 | PR 미생성 · main이 이미 PR #4~6 포함 상태라 독립적으로 병합 가능 · 문서 파일 직접 복붙 이력 있어 병합 시 충돌 가능 |
 | 3 | Task 4-2 · API 명세 최종 협의 (With. 최민수) | ⏸️ BE 회신 대기 | 협의 문서 v1.6 송부 완료 |
 | 4 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | `/auth/kakao`, `/auth/naver` 완성 후 실연동 |
 | 5 | Task 2-5 · Firestore 연동 | ⏳ 대기 | 스크랩 버튼 · 체크리스트 스텁 실동작 연결 |
