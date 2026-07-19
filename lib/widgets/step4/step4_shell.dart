@@ -20,7 +20,31 @@ class Step4Shell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const SurbiAppBar(title: 'AI 창업 분석'),
+      appBar: SurbiAppBar(
+        title: 'AI 창업 분석',
+        onBackPressed: () {
+          if (navigationShell.currentIndex != 0) {
+            navigationShell.goBranch(0);
+            // ⭐ goBranch는 다음 프레임에 반영되므로, 화면이 실제로 바뀐 후에
+            // canPop을 확인해야 정확한 값을 얻을 수 있음
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/step1');
+                }
+              }
+            });
+          } else {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/step1');
+            }
+          }
+        },
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 900;
