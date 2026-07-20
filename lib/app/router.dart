@@ -89,7 +89,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/step3/:regionCode',
         builder: (context, state) {
           final regionCode = state.pathParameters['regionCode'] ?? '없음';
-          return ResponsiveLayout(child: Step3MapPage(regionCode: regionCode));
+          return ResponsiveLayout(
+            maxWidth: double.infinity, // ⭐ Step3는 지도 화면 — 폭 제한 없음
+            child: Step3MapPage(regionCode: regionCode),
+          );
         },
       ),
 
