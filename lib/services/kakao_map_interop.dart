@@ -66,3 +66,25 @@ extension type KakaoSize._(JSObject _) implements JSObject {
 extension type KakaoMarkerImage._(JSObject _) implements JSObject {
   external factory KakaoMarkerImage(String src, KakaoSize size);
 }
+
+/// kakao.maps.CustomOverlay 생성 시 넘겨줄 옵션
+extension type KakaoCustomOverlayOptions._(JSObject _) implements JSObject {
+  external factory KakaoCustomOverlayOptions({
+    required KakaoLatLng position, // 카드가 뜰 좌표
+    required JSAny content, // ⬅️ HTML 문자열 대신 진짜 DOM 요소를 넘길 예정
+    double? yAnchor, // 카드가 좌표 기준 어느 지점에 붙을지 (1.0 = 좌표 바로 위)
+  });
+}
+
+/// kakao.maps.CustomOverlay — 지도 위에 얹는 진짜 HTML 카드
+@JS('kakao.maps.CustomOverlay')
+extension type KakaoCustomOverlay._(JSObject _) implements JSObject {
+  external factory KakaoCustomOverlay(KakaoCustomOverlayOptions options);
+  external void setMap(JSAny? map); // 지도 넘기면 표시, null 넘기면 제거
+}
+
+/// kakao.maps.event.preventMap — 이 클릭/드래그는 지도 자체의 상호작용으로
+/// 처리하지 말아달라고 카카오맵에 미리 알려주는 함수
+/// (CustomOverlay 안의 버튼 등을 누를 때, 그게 "지도 클릭"으로 오인되는 걸 막음)
+@JS('kakao.maps.event.preventMap')
+external void kakaoPreventMap();
