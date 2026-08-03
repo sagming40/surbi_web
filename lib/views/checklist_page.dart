@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:surbi_web/providers/checklist_provider.dart';
-import 'package:surbi_web/widgets/common/surbi_app_bar.dart';
 import 'package:surbi_web/widgets/common/surbi_empty.dart';
 import 'package:surbi_web/widgets/step4/checklist_item_card.dart';
 import 'package:surbi_web/widgets/step4/checklist_progress_bar.dart';
@@ -14,15 +13,13 @@ class ChecklistPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ⭐ 체크리스트 목록 구독 — 항목이 토글될 때마다 이 화면이 자동으로 다시 그려짐
     final items = ref.watch(checklistProvider);
 
-    return Scaffold(
-      backgroundColor: SurbiColors.primary,
-      appBar: const SurbiAppBar(title: '창업 준비 체크리스트'),
-      body: Column(
+    // ⭐ Scaffold(backgroundColor: ...) → Container(color: ...)로 대체
+    return Container(
+      color: SurbiColors.primary,
+      child: Column(
         children: [
-          // ⭐ 추가 — 임시 안내 배너(진행률 바 위/Firestore 연동 전)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -33,7 +30,7 @@ class ChecklistPage extends ConsumerWidget {
               style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
           ),
-          const ChecklistProgressBar(), // ⭐ '진행률' 바
+          const ChecklistProgressBar(),
           Expanded(
             child: items.isEmpty
                 ? const SurbiEmpty(message: '아직 준비된 체크리스트가 없어요')
@@ -49,7 +46,6 @@ class ChecklistPage extends ConsumerWidget {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: ChecklistItemCard(
                           item: item,
-                          // ⭐ Notifier → toggleCheck() 호출
                           onToggle: () => ref
                               .read(checklistProvider.notifier)
                               .toggleCheck(item.itemId),

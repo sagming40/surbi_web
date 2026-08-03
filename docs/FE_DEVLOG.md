@@ -568,7 +568,7 @@ Chrome DevTools로 확인해보니 Flutter Web CanvasKit의 `flt-clip` 요소가
 
 ---
 
-## 2026-07-17 · 문서 구조 전면 개편
+## 2026-07-17 · 문서 구조 전면 개편 
 
 ### 오늘 한 일
 
@@ -625,5 +625,169 @@ Task 3-5 때 "mock_data.dart가 재생성됐다"고 오판해 불필요한 브�
 ### 다음에 할 일
 - 날짜 미상(`2026-07-0?`, `2026-07-1?`) 섹션들 — GitHub 커밋 히스토리로 실제 날짜 확인 후 채우기
 - Step 4 `StatefulShellRoute` 리팩터링 Phase 0 착수 (`router.dart` 확인부터)
+
+---
+
+## 2026-07-18 · Step4 리팩터링 Phase 2~3 — StatefulShellRoute + 게이지 셸 UI
+
+> 🔗 브랜치: `feature/frontend-step4-refactor` (Phase 0~1은 별도 세션에서 선행 완료)
+
+### 오늘 한 일
+
+**Phase 2 — StatefulShellRoute 스켈레톤**
+- `/step4/:buildingId`의 평면 GoRoute 3개(자체 경로/policies/checklist)를 `StatefulShellRoute.indexedStack` 기반 형제 자식 구조로 교체
+- 기존 `/step4/:buildingId` 진입 경로는 `redirect`로 `/report`로 포워딩 → Step 3의 `context.push('/step4/$buildingId')` 호출부는 무수정
+- 세 branch(report/policies/checklist)는 각각 독립 `navigatorKey` 부여, 실제 화면은 아직 `PlaceholderPage`로 대체 (Phase 4에서 연결 예정)
+
+**Phase 3 — 게이지 패널 + 형제 탭 UI**
+- `Step4ScorePage`에서 게이지+예상성과+SHAP 카드 3종을 `ScoreHubPanel`로 추출
+- `Step4Shell` 신규 — `LayoutBuilder`로 900px 기준 분기, 좌측 게이지 고정 + 우측 `navigationShell` 스왑(넓은 화면) / 세로 배치(좁은 화면)
+- `_Step4TabBar` — report/policies/checklist 3개 탭 완전 동등 배치 (7/13 회의 결정: 순서 우열 없는 형제 구조 반영, A안 채택)
+
+### 겪었던 이슈들
+
+**1. `StatefulShellBranch`의 기본 위치엔 파라미터화된 경로를 못 씀**
+처음엔 `/step4/:buildingId/report`처럼 각 branch 경로에 `buildingId`를 그대로 포함시켰는데, 앱 실행 즉시 assertion 에러가 났다: `"The default location of a StatefulShellBranch cannot be a parameterized route"`. go_router는 branch를 처음 열 때의 "기본 위치"를 알아야 하는데, 그 경로에 채워야 할 파라미터가 있으면 값을 알 방법이 없어서 막는 것.
+해결: `buildingId`는 **부모 GoRoute에서 한 번만** 받고, 세 branch는 파라미터 없는 상대경로(`report`/`policies`/`checklist`)만 갖도록 구조를 한 겹 더 감쌌다 — `/step4/:buildingId` 밑에 `routes: [StatefulShellRoute...]`.
+
+**2. 부모의 `redirect`가 자식 간 탭 전환마다 매번 재실행됨**
+Phase 2 완료 직후엔 문제없어 보였는데, Phase 3에서 탭 버튼을 눌러보니 "정부 지원사업"·"체크리스트"를 눌러도 화면이 전혀 안 바뀌었다(콘솔 에러도
+없고 `InkWell` 리플은 정상적으로 뜸). 원인은 최초 진입용으로 걸어둔 `redirect: (context, state) => '${state.matchedLocation}/report'`가, report/policies/checklist **전부의 조상 라우트**에 붙어 있었기 때문. 자식 중 어디로 이동하든 이 부모 라우트가 매칭 스택에 포함되고, go_router는 그때마다 `redirect`를 **다시 평가**한다. 그 결과 탭을 아무리 눌러도 매번 `/report`로 강제 복귀되고 있었다. `state.matchedLocation`(항상 부모 경로 `/step4/$id`로 고정) 대신 `state.uri.path`(브라우저에 실제 표시되는 전체 경로)로 비교해서, **정확히 부모 경로 그 자체일 때만** report로 보내고 이미 자식 경로에 있으면 `null`을 반환해 아무 것도 안 하도록 조건을 추가해 해결.
+
+**3. 증상은 같아 보였지만 원인이 세 겹으로 다른 문제였음**
+탭이 안 눌리는 증상을 조사하던 중, 별개로 Step2 화면에 게이지 배경처럼 보이는 회색 원이 겹쳐 뜨는 현상도 같이 발생해서 원인을 한 덩어리로 오인했다. 실제로는:
+- ① 회색 원 → 그냥 `InkWell` 리플 이펙트였음 (버그 아님)
+- ② "로딩이 안 끝나고 멈춤" → 구조 변경 후 Hot Reload만 하고 완전 재시작을 안 해서 생긴 잔상 (완전 재시작으로 해결)
+- ③ "탭 눌러도 안 바뀜" → 위 2번 이슈(redirect 재실행)가 진짜 원인
+
+**증상 하나 = 원인 하나로 성급히 묶지 말 것**(Task 3-4에서도 학습했던 내용의 재확인). 겹쳐 보이는 문제는 하나씩 분리해서 검증해야 한다.
+
+**4. "화면은 바뀌는데 주소창만 안 바뀌는" 것처럼 보이는 현상 — 실제로는 지연**
+디버깅 중 `location.href`를 직접 콘솔에 찍어 확인하는 습관을 들였는데, 탭 전환(단순 `goBranch` 1홉)에서는 실제 위치와 화면 표시가 항상 정확히
+일치했다. 반면 Step3→Step4 **최초 진입**(push+redirect+branch진입이 겹치는 복잡한 한 번)에서만 화면 표시가 한 박자 늦게 따라오는 것처럼
+보인 적이 있었다. 처음엔 크롬의 "과도한 history API 호출 제한 (Throttling navigation to prevent the browser from hanging, crbug.com/882238)"을 의심했으나, 콘솔에 해당 경고 문구 자체가 없었고 이후 탭 전환은 전부 정확했던 것으로 보아 무관한 것으로 결론. **의심 가는 현상은 검색어부터 정확히 잡아야 한다** — `pushState`로 검색해서 안 나온 걸 "관련 로그 없음"으로 오판할 뻔했다가, 실제 크롬 경고 문구 ("Throttling navigation...")로 다시 검색해서야 이 크롬 매커니즘의 정확한 트리거 조건을 알게 됐고, 결국 이번 케이스와는 무관하다고 판단했다.
+
+### 오늘 배운 것 / 느낀 점
+- go_router의 `redirect`는 "이 라우트에 처음 들어올 때 한 번"이 아니라, **이 라우트가 매칭 스택에 포함될 때마다** 재평가된다. 조상 라우트에 redirect를 걸 땐 "자식 어디로 이동해도 이 redirect를 다시 타게 된다"는 전제하에, 반드시 "지금 정말 리다이렉트가 필요한 상황인지"를 조건으로 걸러야 한다.
+- `state.matchedLocation`과 `state.uri.path`는 다르다. 전자는 "이 라우트가 선언된 경로 패턴", 후자는 "지금 브라우저에 실제로 있는 전체 경로". 조상 라우트의 redirect 조건문에선 후자를 써야 자식 위치를 구분할 수 있다.
+- 화면 표시 이상 증상을 겪을 때 `location.href`를 콘솔에 직접 찍어보는 게 "화면이 진짜 잘못됐는지, 화면 그리기만 늦은 건지"를 가장 빠르게 구분하는 방법이었다.
+- 브라우저/엔진 관련 증상을 검색으로 검증할 땐, 내가 임의로 지은 키워드가 아니라 **콘솔에 실제로 뜨는 문구 그대로**를 검색해야 한다. 문구를 잘못 짚으면 "검색해봤는데 없더라"는 결론 자체가 틀린 근거가 된다.
+
+### 다음에 할 일
+- Phase 4: report/policies/checklist에 실제 화면 연결 (현재 PlaceholderPage)
+  - `step4_score_page.dart`의 `Navigator.push` + `MaterialPageRoute` → `context.push()`로 전환 필요 (go_router 우회 사례, 지난 세션에서도 지적됨)
+- Phase 5: 뒤로가기·상태 유지 검증 + `step4_score_page.dart` 등 데드코드 제거
+
+---
+
+## 2026-07-19 · Step4 리팩터링 Phase 4~5 — 실제 화면 연결 + 네비게이션 버그 3건 수정
+
+### 오늘 한 일
+- Phase 4: report_page.dart / policy_list_page.dart / checklist_page.dart의 Scaffold·AppBar 제거 → router.dart의 PlaceholderPage 3개를 실제 화면으로 교체
+- Phase 5: 뒤로가기·상태 유지 검증 + step4_score_page.dart 삭제
+
+### 겪었던 이슈들 (버그 3건)
+
+**1. 새로고침 시 무조건 루트로 강제 이동**
+`GoRouter(initialLocation: '/')`가 새로고침 때마다 현재 URL을 무시하고 루트로 보내던 문제. `initialLocation` 제거로 해결. (첫 시도 시 브라우저 캐시 때문에 반영 확인이 늦어졌음 — 하드 리프레시로 검증)
+
+**2. 뒤로가기 시 스택 0장이면 크래시**
+`SurbiAppBar`가 `Navigator.pop(context)`를 무조건 호출 → 새로고침 등으로 네비게이션 스택이 1장뿐일 때 "You have popped the last page off of the stack" 어설션 에러로 화면이 멈춤. `context.canPop()` 확인 후 `pop()`/`go('/step1')` 분기로 해결. 공용 위젯이라 앱 전체에 영향을 주던 잠재 버그였음 (이번 리팩터링과 무관하게 원래 존재).
+
+**3. policies·checklist 탭에서 뒤로가기 시 Step1로 잘못 이동**
+report 탭에서는 정상인데 policies·checklist 탭에서만 Step1로 튕기는 증상. `navigationShell.goBranch()`가 다음 프레임에 반영되는 특성 때문에, 탭 전환 직후 바로 확인한 `canPop()`이 전환 전 상태 기준으로 평가되고 있었음. `WidgetsBinding.instance.addPostFrameCallback`으로 프레임 이후 확인하도록 변경, report(0번) 탭으로 먼저 갈아탄 뒤 pop하는 우회 방식으로 해결. `goBranch()`의 정확한 내부 반영 방식(라이브러리 버전별 세부 구현)은 끝까지 규명하지 않고, 검증된 우회로 실용적으로 해결함.
+
+### 오늘 배운 것 / 느낀 점
+- 증상이 비슷해 보여도 원인은 하나씩 다를 수 있다 — 오늘만 뒤로가기 관련 버그가 3개 겹쳐서 나왔는데, 성급히 하나로 묶었으면 계속 헛다리 짚었을 것.
+- `goBranch()` 같은 상태 전환 함수는 "즉시 반영"이 아니라 "다음 프레임 반영"일 수 있다 — 상태 변경 직후 바로 그 상태를 확인하는 코드는 타이밍 버그의 흔한 원인.
+- 브라우저 주소창에 깊은 경로를 직접 입력해서 테스트하면 네비게이션 스택이 왜곡된 채로 시작되어 디버깅 데이터가 오염된다 — 재현 절차의 "시작점"이 정당한지부터 점검해야 함.
+- 원인을 100% 규명하는 것과 실용적으로 해결하는 것은 다른 목표다. 라이브러리 내부 동작까지 파고드는 게 비용 대비 효율이 떨어지는 지점에서는, 검증된 우회로 방향을 트는 것도 합리적 선택.
+
+### 다음에 할 일
+- 7/13 회의 지시 ②③④ 반영 착수 (Step 1 드롭다운+히트맵 연동, Step 3 BottomSheet 재검토) → 별도 브랜치에서 진행 예정, 상세 내용은 FE_WORKFLOW.md "팀 정기회의 지시사항" 표 참고 (①번은 "제안 수준"이라 이번엔 제외, 필수 항목 ②③④만 우선 진행)
+- feature/frontend-step4-refactor PR 생성 후 main 병합 진행 (히스토리 확인 결과 이 브랜치가 main의 PR #4~6 병합 지점을 이미 포함하고 있어 "PR #4~6과 함께"라는 조건 불필요 — 독립적으로 병합 가능. 문서 파일 직접 복붙 이력으로 인한 가짜 충돌 가능성은 여전히 존재 — 병합 시 주의)
+
+---
+
+## 2026-07-20 · 7/13 회의 지시 ②③ 완료 — Step1 구/동 드롭다운 + 지도 마커
+
+> 🔗 브랜치: `feature/frontend-step4-refactor`에서 분기한 `feature/frontend-step1-step3-rework`
+
+### 오늘 한 일
+
+**① 브랜치 분기 전략**
+- `feature/frontend-step4-refactor`가 아직 main 미병합 상태라, 여기서 분기하면 새 브랜치가 Step4 리팩터링 커밋을 전부 포함하게 되는 문제 검토
+- `router.dart` 등 Step4 구조가 이미 반영된 최신 코드 위에서 작업해야 파일 충돌 위험이 적다고 판단 → main이 아닌 `feature/frontend-step4-refactor`에서 분기. PR 열 때 base를 `feature/frontend-step4-refactor`로 지정하면 diff 문제 없음
+
+**② Step1 검색창 → 구/동 2단계 드롭다운 교체**
+- 기존 `Autocomplete` 기반 검색창을 "구 선택 → 동 선택" 계층형 드롭다운으로 교체
+- `region_provider.dart`의 임시 데이터를 4개 동(district) → 서울 25개 구 전체 (구별 2~3개 동)로 확장
+- 새 모델(`District`/`Gu`)을 만들려다, 예전 세션에서 이미 만들어두고 실제로는 안 쓰이던 `Region` 모델(lat/lng, fromJson 포함)을 뒤늦게 발견 → 새로 만들지 않고 기존 모델 재활용 (Task 4-3 API 연동 시 재사용 가능)
+- `DropdownButtonFormField`가 항목 수가 많으면 화면 잘림 방지를 위해 위로 뒤집혀 버튼을 가리는 문제 발견 → `OverlayEntry` + `CompositedTransformFollower` 기반 커스텀 위젯(`SurbiDropdown`, `widgets/common/`)을 신규 제작해 해결
+- `collection` 패키지가 `pubspec.yaml`에 정식 등록되지 않은 transitive dependency였음을 확인 → `firstOrNull` 대신 직접 헬퍼 함수(`_findSelectedRegion`)로 대체
+
+**③ Step1 히트맵 자리에 실제 Kakao 지도 + 동 마커 렌더링**
+- 회색 placeholder를 `HtmlElementView`로 교체, 구 선택 시 그 구에 속한 동 전체를 마커로 표시 (팀장 제안 반영 — 단일 동이 아닌 구 단위 전체 표시로 확정)
+- Task 3-3에서 구축한 `kakao_map_interop.dart`(JS-Dart 통역 레이어)를 그대로 재사용하되, 지도 인스턴스(`kakaoMapInstanceStep1`)와 뷰타입 (`kakao-map-view-step1`)은 Step3와 분리해 두 화면 지도가 서로 간섭하지 않도록 설계
+- `addRegionMarkers()` 신규 작성 — 기존 `addBuildingMarkers()`의 검증된 패턴 (hover 마커 확대, `Future.delayed(300ms)` + `relayout()` 후 `setBounds()` — Task 3-3에서 확립한 타이밍 이슈 해결법)을 그대로 재사용
+- 구를 새로 선택할 때마다 이전 마커를 지우고 새로 찍도록 `_step1RegionMarkers` 리스트로 마커 상태 관리 (`marker.setMap(null)`로 제거)
+- `ref.listen()`으로 `selectedGu` 값이 실제로 바뀔 때만 마커 재생성 — `build()` 안에서 직접 호출 시 카테고리 선택 등 무관한 리빌드마다 마커가 다시 찍히는 문제를 사전에 방지
+
+### 겪었던 이슈들
+
+**1. Region 모델이 이미 있었는데 모르고 새로 만들려 함**
+`District`/`Gu` 클래스를 새로 설계하다가, `region.dart`에 이미 `Region` 모델(lat/lng, fromJson 포함)이 존재한다는 걸 뒤늦게 발견했다. 실제 사용처를 `project_knowledge_search`로 검색해보니 어디서도 참조되지 않는 죽은 코드 상태였다 — 예전 세션에서 Task 4-3(API 연동) 대비로 미리 만들어뒀으나, 이후 실제 구현 단계에서는 다른 방식(Map<String, String>)으로 임시 처리하며 방치된 것으로 추정된다. 새로 만드는 대신 기존 모델을 확장해 재활용하기로 결정 — `fromJson()`이 이미 있어 향후 API 연동 시 그대로 쓸 수 있다는 점이 결정적이었다.
+
+**2. DropdownButtonFormField가 화면 잘림 방지 때문에 위로 뒤집힘**
+구 25개를 드롭다운에 다 넣으니, 펼쳤을 때 메뉴가 버튼 자체를 위로 덮어버리는 현상이 발생했다. `menuMaxHeight`로 높이를 제한해도 근본적으로 해결되지 않았다 — Flutter의 `DropdownButton`이 "메뉴가 화면 안에 다 들어오도록 알아서 위치를 계산"하는 로직을 갖고 있어, 항목이 많으면 위로 뒤집는 방향을 우선시하기 때문. 결국 `OverlayEntry` + `LayerLink`(`CompositedTransformTarget`/ `Follower`) 조합으로 "버튼 바로 아래에 무조건 고정"되는 커스텀 드롭다운을 직접 구현해 해결했다.
+
+**3. collection 패키지가 pubspec.yaml에 없는 간접 의존성이었음**
+`firstOrNull`을 쓰려다 `pubspec.lock`을 확인해보니 `collection` 패키지가 `dependency: transitive`로 표시되어 있었다 — 즉 내가 직접 추가한 게 아니라 `flutter_riverpod` 등 다른 패키지가 내부적으로 쓰고 있어서 우연히 딸려 들어온 패키지였다. 이 상태로 계속 쓰면 나중에 그 패키지 버전이 바뀔 때 `collection`이 사라질 위험이 있어, 정식으로 의존성을 추가하는 대신 기본 문법(for 반복문)으로 직접 헬퍼 함수를 작성해 우회했다.
+
+### 오늘 배운 것 / 느낀 점
+- 미리 만들어둔 모델이나 코드는 시간이 지나면 "있었는지조차 잊혀지는" 위험이 있다. 새 기능을 설계하기 전에 관련 모델이 이미 있는지 검색부터 하는 습관이 중복 설계를 막아준다.
+- Flutter의 기본 위젯(`DropdownButtonFormField`)이 항상 최선은 아니다 — "화면을 벗어나지 않게 하는" 기본 동작이, 오히려 우리가 원하는 "예측 가능한 위치"라는 요구사항과 충돌할 수 있다는 걸 배웠다. 이럴 땐 기본 위젯을 억지로 구부리기보다 필요한 동작만 딱 하는 커스텀 위젯을 만드는 게 더 안전했다.
+- `pubspec.lock`의 `dependency: transitive` 표시는 "이 패키지는 언제든 사라질 수 있다"는 신호다. `pubspec.yaml`에 명시되지 않은 패키지를 프로덕션 코드에서 쓰기 전엔 항상 이 구분을 확인해야 한다.
+- Task 3-3에서 겪었던 Kakao맵 이슈들(403, setBounds 타이밍, 리사이즈)이 오늘은 하나도 재발하지 않았다 — 이미 검증된 해결 패턴을 그대로 재사용하니 새로운 화면에 지도를 붙이는 작업이 훨씬 안전했다. 한 번 제대로 겪고 해결한 문제는 다음번엔 "재료"가 된다.
+
+### 다음에 할 일
+- 7/13 회의 지시 ④ (Step3 BottomSheet 재검토 — 별도 화면 분리 vs 다른 정보 제공 방식 결정)
+- `feature/frontend-step1-step3-rework` 완료 후 `feature/frontend-step4-refactor` 기준으로 PR 생성, 이후 `feature/frontend-step4-refactor` → main 순으로 병합 진행
+
+---
+
+## 2026-07-20 · 7/13 회의 지시 ④ 완료 — Step3 BottomSheet → CustomOverlay 전환
+
+> 🔗 브랜치: `feature/frontend-step1-step3-rework`
+
+### 오늘 한 일
+- Step3 BottomSheet(Task 3-3에서 드래그 흔들림으로 롤백됐던 것)를 카카오맵 CustomOverlay 기반 지도 위 카드로 전면 교체
+- 겸사겸사 발견된 별개 이슈 2건도 같이 해결
+  - Step3 AppBar가 Platform View에 가려지던 렌더링 버그 → AppBar 제거, Stack + Positioned 플로팅 버튼으로 대체
+  - Step3 지도가 500px로 좁게 렌더링되던 폭 회귀 문제 → 원인은 router.dart에서 ResponsiveLayout이 이중으로 감싸고 있던 것
+
+### 겪었던 이슈들
+
+**1. 문서(FE_WORKFLOW)와 실제 코드가 두 번 어긋나 있었음**
+Step4 리팩터링 Phase1 "ResponsiveLayout 500→900 확장 완료" 기록과 달리, 프로젝트 지식 스냅샷의 실제 코드는 여전히 500px 하드코딩 상태였음. 실물 파일을 직접 받아 대조한 뒤에야 실제로는 `maxWidth`가 파라미터화되고 전역 wrapping은 제거된 최신 구조라는 걸 확인했다. 문서 스냅샷이 브랜치 최신 상태를 못 따라간 사례.
+
+**2. "폭이 좁아 보인다"는 증상의 원인을 잘못 짚을 뻔함**
+처음엔 `ResponsiveLayout` 자체의 500px 제한이 원인이라 가정하고 설계까지 잡았으나, 실제로는 `step3_map_page.dart`도 `main.dart`도 이미 폭 제한이 없는 상태였다. 진짜 원인은 `router.dart`의 라우트 builder에서 `ResponsiveLayout`으로 한 번 더 감싸고 있던 것 — 화면 파일 자체만 보고 판단하면 안 되고, 그 화면을 "불러오는 지점"까지 같이 봐야 했던 사례. Step4 라우트가 `maxWidth: 1200`을 명시적으로 지정하고 있던 게 결정적 단서가 됐다.
+
+**3. 오버레이 카드 토글 / 외부클릭 닫기를 처음엔 빠뜨림**
+`showBuildingOverlay`에 "이전 카드 지우고 새 카드 띄우기"만 구현하고, "같은 마커 재클릭 시 닫기"·"빈 지도 클릭 시 닫기"는 누락한 채 1차 완료 보고했다. 실제 사용성 확인 과정에서 발견 후 추가. `_activeOverlayBuilding`으로 "지금 열린 카드가 어떤 건물 것인지" 별도 추적해 토글 판단, 지도 객체 자체에 `click` 리스너를 추가해 외부클릭 닫기를 구현했다.
+
+**4. "자세히 보기" 버튼을 눌러도 카드만 닫히고 Step4로 안 넘어감**
+3번에서 추가한 "지도 클릭 시 카드 닫기" 기능이 원인이었다. 카카오맵 SDK는 CustomOverlay(카드) 위에서 발생한 클릭도 "지도 영역 클릭"으로 함께 감지한다 — 마커 클릭과는 다르게 오버레이 클릭은 지도 클릭과 분리되지 않았던 것. 그 결과 버튼 클릭 이벤트가 실제로 처리되기 전에 `closeBuildingOverlay()`가 먼저 실행되어 카드(버튼 포함)가 DOM에서 삭제되고, 이미 삭제된 버튼은 자기 클릭 이벤트를 받을 수 없어 Step4 이동 로직이 아예 실행되지 않았다. `kakao. maps.event.preventMap()`으로 카드 영역의 `mousedown`/`touchstart` 시점에 "이 상호작용은 지도 이벤트로 처리하지 말라"고 미리 선언해 해결. `click`이 아닌 `mousedown`/`touchstart`에 건 이유는, 카카오맵이 지도 상호작용 여부를 판단하는 시점이 `click`보다 이르기 때문(더 늦은 시점에 방어하면 이미 판단이 끝난 뒤라 효과가 없음).
+
+### 오늘 배운 것 / 느낀 점
+- Task 3-3에서 실패했던 BottomSheet 방식과 오늘 CustomOverlay 방식의 차이는 결국 "어느 렌더링 세계에서 그리는가"였다. Flutter 파이프라인 vs 브라우저 DOM — 같은 세계에서 그리면 렌더링 충돌 자체가 성립하지 않는다. 다만 "같은 세계"라서 새로 생기는 문제(이벤트 버블링/감지 범위 문제, 4번 이슈)도 있다는 걸 이번에 알게 됐다 — 충돌이 사라진다고 모든 상호작용 문제가 같이 사라지는 건 아니다.
+- 버그 원인을 추적할 때 "그 파일 자체"만 보지 말고 "그 파일을 누가, 어디서 불러오는지"까지 한 겹 더 봐야 한다는 걸 다시 확인했다 (2번 이슈).
+- 외부 SDK(카카오맵)를 새 방식으로 쓸 때는, 공식 문서·예제에 있는 "이런 상황을 위한 전용 함수"(`preventMap()`)가 있는지부터 찾아보는 게 직접 이벤트 흐름을 역추적하는 것보다 훨씬 빠르다.
+
+### 다음에 할 일
+- `feature/frontend-step1-step3-rework` 완료 → `feature/frontend-step4-refactor` 기준 PR 생성
+- 이후 `feature/frontend-step4-refactor` → main 순으로 병합 진행
+- Task 4-2 API 명세 최종 협의 (With. BE)
 
 ---
