@@ -4,7 +4,7 @@
 | --- | --- |
 | 버전 | v3.15 |
 | 생성일 | 2026년 6월 18일 |
-| 최종 수정 | 2026년 7월 20일 |
+| 최종 수정 | 2026년 8월 3일 |
 | 담당자 | 사공민규 |
 | 기술 스택 | Flutter Web · Firebase · Riverpod · go_router · fl_chart · 카카오맵 SDK · intl |
 
@@ -21,11 +21,9 @@
 
 | 순위 | 작업 | 상태 | 비고 |
 | --- | --- | --- | --- |
-| **1** | `feature/frontend-step1-step3-rework` 완료 → `feature/frontend-step4-refactor` 기준 PR 생성 | ⏳ 대기 | 7/13 회의 지시 ②③④ 전부 완료 |
-| 2 | `feature/frontend-step4-refactor` PR 생성 → main 병합 | ⏳ 대기 | PR 미생성 · main이 이미 PR #4~6 포함 상태라 독립적으로 병합 가능 · 문서 파일 직접 복붙 이력 있어 병합 시 충돌 가능 |
-| 3 | Task 4-2 · API 명세 최종 협의 (With. 최민수) | ⏸️ BE 회신 대기 | 협의 문서 v1.6 송부 완료 |
-| 4 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | `/auth/kakao`, `/auth/naver` 완성 후 실연동 |
-| 5 | Task 2-5 · Firestore 연동 | ⏳ 대기 | 스크랩 버튼 · 체크리스트 스텁 실동작 연결 |
+| **1** | Task 4-2 · API 명세 최종 협의 (With. BE) | ⏸️ BE 회신 대기 | 협의 문서 v1.6 송부 완료 |
+| 2 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | `/auth/kakao`, `/auth/naver` 완성 후 실연동 |
+| 3 | Task 2-5 · Firestore 연동 | ⏳ 대기 | 스크랩 버튼 · 체크리스트 스텁 실동작 연결 |
 
 ### 🚧 현재 블로커
 - 현재 블로커 없음
@@ -55,10 +53,18 @@
 | EPIC | 내용 | 진행 | 상태 |
 | --- | --- | --- | --- |
 | **1** | 환경 구축 & 기반 설계 | 7 / 7 | ✅ 완료 |
-| **2** | 인증 & 사용자 관리 | 1 / 5 | 🔄 진행 중 |
+| **2** | 인증 & 사용자 관리 | 1 / 5 | 🔄 진행 중 (Task 2-1 main 병합 완료, PR #9) |
 | **3** | Step 1~4 핵심 화면 개발 | 7 / 7 | ✅ 완료 |
 | **4** | 백엔드 API 연동 | 0 / 6 | 🔄 4-2 협의 중 |
 | **5** | 품질 검증 & 배포 | 0 / 4 | ⏳ 대기 |
+
+### 🌿 브랜치 전략 변경 (2026-08-03~)
+
+> 1인 프론트 독립 개발 체제 + 팀 정기회의에서 진행상황만 공유하는 구조
+> **PR 승인 절차 없이 자유롭게 main 작업 가능**으로 전환.
+> - 자잘한 수정·버그픽스: **main 직접 작업**
+> - 화면 전체 리팩터링, 실험적 시도(디자인 A/B 등): **여전히 임시 브랜치 권장** (롤백 지점 확보 목적)
+> - 상세 배경은 `docs/BRANCH_STRATEGY.md` 갱신 예정
 
 ---
 
@@ -188,7 +194,7 @@ Flutter Web에서 URL이 바뀌지 않아 뒤로가기 버튼·북마크·공유
 ## 🔄 EPIC 2 · 인증 & 사용자 관리
 
 > 💡 **목표** — 인증 구조를 먼저 잡아야 이후 모든 화면에서 유저 정보를 쓸 수 있음
-> 🌿 **브랜치** — `feature/frontend-epic2-auth`
+> 🌿 **브랜치** — main 직접 작업 (2026-08-03부터 브랜치 전략 변경, 하단 참고)
 > 🔑 **인증 구조** — 카카오/네이버 OAuth → 백엔드가 Firebase Custom Token 발급 → FE는 `signInWithCustomToken()`으로 소비. 세션 유지는 Firebase SDK가 자동 처리.
 
 ### ✅ Task 2-1 · Firebase 프로젝트 생성 및 Flutter Web 연동
@@ -196,6 +202,7 @@ Flutter Web에서 URL이 바뀌지 않아 뒤로가기 버튼·북마크·공유
 - [x] Firebase Console 프로젝트 생성 (`surbi-web`, Spark 무료 플랜)
 - [x] `flutterfire configure` → `firebase_options.dart` 자동 생성
 - [x] `pubspec.yaml`에 `firebase_core` / `firebase_auth` / `cloud_firestore` 추가
+- [x] main 병합 완료 (PR #9, 2026-08-03)
 
 > ℹ️ `web/index.html`에 Firebase SDK 스크립트 수동 삽입은 **불필요** — Dart 패키지(`firebase_core`) 연동 방식.
 
@@ -575,4 +582,4 @@ Future<String> pollReport(String reportId) async {
 
 ---
 
-*FRONT-END WORKFLOW v3.15 · 사공민규 · 최종 수정: 2026.07.20*
+*FRONT-END WORKFLOW v3.16 · 사공민규 · 최종 수정: 2026.08.03*

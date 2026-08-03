@@ -33,10 +33,9 @@
 - 팀장 지침: 개별 개발 후 **주간 정기회의에서 진행상황만 공유**
 
 ### 브랜치 전략
-- EPIC 1 → `main` 직접 작업 / EPIC 2~5 → `feature` 브랜치 (`BRANCH_STRATEGY.md` 기준)
-- **새 브랜치는 항상 최신화된 `main`에서 분기할 것.** 다른 feature 브랜치 위에서
-  파면 PR에 무관한 커밋이 누적되는 "스태킹" 문제 발생
-- 단순 핫픽스는 원격 PR 없이 **전용 브랜치 → GitHub Desktop 로컬 병합**으로 처리
+- **(2026-08-03 변경)** 1인 프론트 독립 개발 체제 확인 → PR 승인 절차 없이 **main 직접 작업 허용**
+- 화면 전체 리팩터링 · 실험적 시도(디자인 A/B 등)는 롤백 지점 확보를 위해 임시 브랜치 권장
+- 브랜치를 쓸 경우, **새 브랜치는 항상 최신화된 `main`에서 분기할 것** (스태킹 방지 원칙은 유지)
 
 ### 커밋 규칙
 - `feat:` 화면/기능 신규 구현 / `style:` 시각적 디테일 조정 / `fix:` 버그 수정 /
@@ -789,5 +788,40 @@ Step4 리팩터링 Phase1 "ResponsiveLayout 500→900 확장 완료" 기록과 �
 - `feature/frontend-step1-step3-rework` 완료 → `feature/frontend-step4-refactor` 기준 PR 생성
 - 이후 `feature/frontend-step4-refactor` → main 순으로 병합 진행
 - Task 4-2 API 명세 최종 협의 (With. BE)
+
+---
+
+## 2026-08-03 · 2주 공백 후 상태 복원 + 미병합 브랜치 2개 처리 + 브랜치 전략 변경
+
+### 오늘 한 일
+- 2주 공백 후 로컬/원격 상태 재확인 (`git status`, `git log`, `git branch`)
+- `feature/frontend-step1-step3-rework` → `feature/frontend-step4-refactor` → `main` (PR #7·#8) 이미 정상 순서로 병합 완료돼 있음을 확인
+- 이전엔 인지하지 못했던 미병합 브랜치 2개 발견
+  - `feature/frontend-epic2-auth` — Task 2-1(Firebase 연동) + 브랜드 컬러 최종 확정 커밋 포함, main 미병합 상태로 방치돼 있었음
+  - `feature/frontend-step1-ui-navygold` — 컬러 실험용 폐기 브랜치, 실험 기록 보존 목적으로 유지 결정
+- `epic2-auth`를 main 최신 상태로 병합(`pubspec.yaml` 충돌 1건 해결: firebase 3종 + intl/url_launcher/web/fl_chart 공존) → PR #9로 main 병합 완료
+- `flutter analyze` / `flutter run -d chrome --web-port=5000`으로 Step1~4 전체 플로우 실물 확인 (Firebase 초기화, 은백+네이비 테마 정상 적용 확인)
+- 병합 완료된 `epic2-auth` 브랜치 삭제 (로컬+원격)
+- **팀장 확인 사항 반영 — 브랜치 전략 변경**: 1인 프론트 독립 개발 체제이고 팀 회의에서 진행상황만 공유하는 구조이므로, 향후 PR 승인 절차 없이 main 직접 작업 가능하도록 전환
+
+### 겪었던 이슈들
+
+**1. 문서(project knowledge)와 실제 git 상태가 어긋나 있었음**
+`FE_WORKFLOW.md` v3.15엔 "PR 미생성"으로 기록된 두 브랜치(`step1-step3-rework`, `step4-refactor`)가 실제로는 이미 PR #7·#8로 main에 병합 완료된 상태였다. project knowledge 스냅샷이 마지막 작업 시점 이후로 갱신되지 않아 생긴 차이 — 실물(`git log`) 기준으로 재확인 후 진행.
+
+**2. Task 2-1(Firebase)이 "완료" 기록만 있고 실제 main 병합은 안 돼 있었음**
+`FE_WORKFLOW.md`엔 Task 2-1이 체크 완료로 표시돼 있었지만, 실제로는 `feature/frontend-epic2-auth` 브랜치에 갇힌 채 2주 이상 main에 반영되지 않은 상태였다. "완료 표시 = main 반영"이 아니라 "완료 표시 = 그 브랜치에서 작업 끝"이라는 걸 구분해서 문서화할 필요를 느꼈다.
+
+**3. pubspec.yaml 충돌 — 같은 줄 위치에 서로 다른 패키지가 추가된 전형적 케이스**
+`epic2-auth`(Firebase 3종 추가)와 그 사이 main에 쌓인 다른 작업(intl/url_launcher/web/fl_chart 추가)이 `pubspec.yaml`의 같은 삽입 위치를 두고 충돌했다. 내용 자체는 겹치지 않아 `Accept Both Changes`로 간단히 해결 → `flutter pub get`으로 `pubspec.lock` 재생성.
+
+### 오늘 배운 것 / 느낀 점
+- **오래 분기된 채 방치된 브랜치는 병합이 늦어질수록 "완료됐다고 착각하기 쉬운 상태"가 된다.** Task 체크 표시만 보고 "다 끝났다"고 판단하지 않고, 주기적으로 `git branch -a` + `git log main..<branch>`로 미병합 작업이 있는지 점검하는 습관이 필요하다.
+- 문서 갱신 주기와 실제 작업 갱신 주기가 어긋나면, project knowledge 스냅샷도 오래된 정보를 사실처럼 전달할 수 있다 — 특히 공백 기간 뒤 복귀할 땐 문서보다 `git log` 실물을 항상 먼저 신뢰할 것.
+- 브랜치 전략은 팀 상황(1인 개발, 승인 불필요)에 맞춰 유연하게 조정 가능하다는 걸 확인했다. 다만 "롤백 지점 확보"라는 브랜치의 또 다른 효용은 협업 여부와 무관하게 유효하므로, 큰 리팩터링·실험적 시도엔 계속 브랜치를 쓰기로 함.
+
+### 다음에 할 일
+- Task 4-2 API 명세 최종 협의 (With. 최민수, BE 회신 대기)
+- Task 2-2 카카오·네이버 로그인 UI 착수 여부 검토 (BE 의존)
 
 ---
