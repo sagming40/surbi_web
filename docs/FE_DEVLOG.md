@@ -708,3 +708,86 @@ report 탭에서는 정상인데 policies·checklist 탭에서만 Step1로 튕�
 - feature/frontend-step4-refactor PR 생성 후 main 병합 진행 (히스토리 확인 결과 이 브랜치가 main의 PR #4~6 병합 지점을 이미 포함하고 있어 "PR #4~6과 함께"라는 조건 불필요 — 독립적으로 병합 가능. 문서 파일 직접 복붙 이력으로 인한 가짜 충돌 가능성은 여전히 존재 — 병합 시 주의)
 
 ---
+
+## 2026-07-20 · 7/13 회의 지시 ②③ 완료 — Step1 구/동 드롭다운 + 지도 마커
+
+> 🔗 브랜치: `feature/frontend-step4-refactor`에서 분기한 `feature/frontend-step1-step3-rework`
+
+### 오늘 한 일
+
+**① 브랜치 분기 전략**
+- `feature/frontend-step4-refactor`가 아직 main 미병합 상태라, 여기서 분기하면 새 브랜치가 Step4 리팩터링 커밋을 전부 포함하게 되는 문제 검토
+- `router.dart` 등 Step4 구조가 이미 반영된 최신 코드 위에서 작업해야 파일 충돌 위험이 적다고 판단 → main이 아닌 `feature/frontend-step4-refactor`에서 분기. PR 열 때 base를 `feature/frontend-step4-refactor`로 지정하면 diff 문제 없음
+
+**② Step1 검색창 → 구/동 2단계 드롭다운 교체**
+- 기존 `Autocomplete` 기반 검색창을 "구 선택 → 동 선택" 계층형 드롭다운으로 교체
+- `region_provider.dart`의 임시 데이터를 4개 동(district) → 서울 25개 구 전체 (구별 2~3개 동)로 확장
+- 새 모델(`District`/`Gu`)을 만들려다, 예전 세션에서 이미 만들어두고 실제로는 안 쓰이던 `Region` 모델(lat/lng, fromJson 포함)을 뒤늦게 발견 → 새로 만들지 않고 기존 모델 재활용 (Task 4-3 API 연동 시 재사용 가능)
+- `DropdownButtonFormField`가 항목 수가 많으면 화면 잘림 방지를 위해 위로 뒤집혀 버튼을 가리는 문제 발견 → `OverlayEntry` + `CompositedTransformFollower` 기반 커스텀 위젯(`SurbiDropdown`, `widgets/common/`)을 신규 제작해 해결
+- `collection` 패키지가 `pubspec.yaml`에 정식 등록되지 않은 transitive dependency였음을 확인 → `firstOrNull` 대신 직접 헬퍼 함수(`_findSelectedRegion`)로 대체
+
+**③ Step1 히트맵 자리에 실제 Kakao 지도 + 동 마커 렌더링**
+- 회색 placeholder를 `HtmlElementView`로 교체, 구 선택 시 그 구에 속한 동 전체를 마커로 표시 (팀장 제안 반영 — 단일 동이 아닌 구 단위 전체 표시로 확정)
+- Task 3-3에서 구축한 `kakao_map_interop.dart`(JS-Dart 통역 레이어)를 그대로 재사용하되, 지도 인스턴스(`kakaoMapInstanceStep1`)와 뷰타입 (`kakao-map-view-step1`)은 Step3와 분리해 두 화면 지도가 서로 간섭하지 않도록 설계
+- `addRegionMarkers()` 신규 작성 — 기존 `addBuildingMarkers()`의 검증된 패턴 (hover 마커 확대, `Future.delayed(300ms)` + `relayout()` 후 `setBounds()` — Task 3-3에서 확립한 타이밍 이슈 해결법)을 그대로 재사용
+- 구를 새로 선택할 때마다 이전 마커를 지우고 새로 찍도록 `_step1RegionMarkers` 리스트로 마커 상태 관리 (`marker.setMap(null)`로 제거)
+- `ref.listen()`으로 `selectedGu` 값이 실제로 바뀔 때만 마커 재생성 — `build()` 안에서 직접 호출 시 카테고리 선택 등 무관한 리빌드마다 마커가 다시 찍히는 문제를 사전에 방지
+
+### 겪었던 이슈들
+
+**1. Region 모델이 이미 있었는데 모르고 새로 만들려 함**
+`District`/`Gu` 클래스를 새로 설계하다가, `region.dart`에 이미 `Region` 모델(lat/lng, fromJson 포함)이 존재한다는 걸 뒤늦게 발견했다. 실제 사용처를 `project_knowledge_search`로 검색해보니 어디서도 참조되지 않는 죽은 코드 상태였다 — 예전 세션에서 Task 4-3(API 연동) 대비로 미리 만들어뒀으나, 이후 실제 구현 단계에서는 다른 방식(Map<String, String>)으로 임시 처리하며 방치된 것으로 추정된다. 새로 만드는 대신 기존 모델을 확장해 재활용하기로 결정 — `fromJson()`이 이미 있어 향후 API 연동 시 그대로 쓸 수 있다는 점이 결정적이었다.
+
+**2. DropdownButtonFormField가 화면 잘림 방지 때문에 위로 뒤집힘**
+구 25개를 드롭다운에 다 넣으니, 펼쳤을 때 메뉴가 버튼 자체를 위로 덮어버리는 현상이 발생했다. `menuMaxHeight`로 높이를 제한해도 근본적으로 해결되지 않았다 — Flutter의 `DropdownButton`이 "메뉴가 화면 안에 다 들어오도록 알아서 위치를 계산"하는 로직을 갖고 있어, 항목이 많으면 위로 뒤집는 방향을 우선시하기 때문. 결국 `OverlayEntry` + `LayerLink`(`CompositedTransformTarget`/ `Follower`) 조합으로 "버튼 바로 아래에 무조건 고정"되는 커스텀 드롭다운을 직접 구현해 해결했다.
+
+**3. collection 패키지가 pubspec.yaml에 없는 간접 의존성이었음**
+`firstOrNull`을 쓰려다 `pubspec.lock`을 확인해보니 `collection` 패키지가 `dependency: transitive`로 표시되어 있었다 — 즉 내가 직접 추가한 게 아니라 `flutter_riverpod` 등 다른 패키지가 내부적으로 쓰고 있어서 우연히 딸려 들어온 패키지였다. 이 상태로 계속 쓰면 나중에 그 패키지 버전이 바뀔 때 `collection`이 사라질 위험이 있어, 정식으로 의존성을 추가하는 대신 기본 문법(for 반복문)으로 직접 헬퍼 함수를 작성해 우회했다.
+
+### 오늘 배운 것 / 느낀 점
+- 미리 만들어둔 모델이나 코드는 시간이 지나면 "있었는지조차 잊혀지는" 위험이 있다. 새 기능을 설계하기 전에 관련 모델이 이미 있는지 검색부터 하는 습관이 중복 설계를 막아준다.
+- Flutter의 기본 위젯(`DropdownButtonFormField`)이 항상 최선은 아니다 — "화면을 벗어나지 않게 하는" 기본 동작이, 오히려 우리가 원하는 "예측 가능한 위치"라는 요구사항과 충돌할 수 있다는 걸 배웠다. 이럴 땐 기본 위젯을 억지로 구부리기보다 필요한 동작만 딱 하는 커스텀 위젯을 만드는 게 더 안전했다.
+- `pubspec.lock`의 `dependency: transitive` 표시는 "이 패키지는 언제든 사라질 수 있다"는 신호다. `pubspec.yaml`에 명시되지 않은 패키지를 프로덕션 코드에서 쓰기 전엔 항상 이 구분을 확인해야 한다.
+- Task 3-3에서 겪었던 Kakao맵 이슈들(403, setBounds 타이밍, 리사이즈)이 오늘은 하나도 재발하지 않았다 — 이미 검증된 해결 패턴을 그대로 재사용하니 새로운 화면에 지도를 붙이는 작업이 훨씬 안전했다. 한 번 제대로 겪고 해결한 문제는 다음번엔 "재료"가 된다.
+
+### 다음에 할 일
+- 7/13 회의 지시 ④ (Step3 BottomSheet 재검토 — 별도 화면 분리 vs 다른 정보 제공 방식 결정)
+- `feature/frontend-step1-step3-rework` 완료 후 `feature/frontend-step4-refactor` 기준으로 PR 생성, 이후 `feature/frontend-step4-refactor` → main 순으로 병합 진행
+
+---
+
+## 2026-07-20 · 7/13 회의 지시 ④ 완료 — Step3 BottomSheet → CustomOverlay 전환
+
+> 🔗 브랜치: `feature/frontend-step1-step3-rework`
+
+### 오늘 한 일
+- Step3 BottomSheet(Task 3-3에서 드래그 흔들림으로 롤백됐던 것)를 카카오맵 CustomOverlay 기반 지도 위 카드로 전면 교체
+- 겸사겸사 발견된 별개 이슈 2건도 같이 해결
+  - Step3 AppBar가 Platform View에 가려지던 렌더링 버그 → AppBar 제거, Stack + Positioned 플로팅 버튼으로 대체
+  - Step3 지도가 500px로 좁게 렌더링되던 폭 회귀 문제 → 원인은 router.dart에서 ResponsiveLayout이 이중으로 감싸고 있던 것
+
+### 겪었던 이슈들
+
+**1. 문서(FE_WORKFLOW)와 실제 코드가 두 번 어긋나 있었음**
+Step4 리팩터링 Phase1 "ResponsiveLayout 500→900 확장 완료" 기록과 달리, 프로젝트 지식 스냅샷의 실제 코드는 여전히 500px 하드코딩 상태였음. 실물 파일을 직접 받아 대조한 뒤에야 실제로는 `maxWidth`가 파라미터화되고 전역 wrapping은 제거된 최신 구조라는 걸 확인했다. 문서 스냅샷이 브랜치 최신 상태를 못 따라간 사례.
+
+**2. "폭이 좁아 보인다"는 증상의 원인을 잘못 짚을 뻔함**
+처음엔 `ResponsiveLayout` 자체의 500px 제한이 원인이라 가정하고 설계까지 잡았으나, 실제로는 `step3_map_page.dart`도 `main.dart`도 이미 폭 제한이 없는 상태였다. 진짜 원인은 `router.dart`의 라우트 builder에서 `ResponsiveLayout`으로 한 번 더 감싸고 있던 것 — 화면 파일 자체만 보고 판단하면 안 되고, 그 화면을 "불러오는 지점"까지 같이 봐야 했던 사례. Step4 라우트가 `maxWidth: 1200`을 명시적으로 지정하고 있던 게 결정적 단서가 됐다.
+
+**3. 오버레이 카드 토글 / 외부클릭 닫기를 처음엔 빠뜨림**
+`showBuildingOverlay`에 "이전 카드 지우고 새 카드 띄우기"만 구현하고, "같은 마커 재클릭 시 닫기"·"빈 지도 클릭 시 닫기"는 누락한 채 1차 완료 보고했다. 실제 사용성 확인 과정에서 발견 후 추가. `_activeOverlayBuilding`으로 "지금 열린 카드가 어떤 건물 것인지" 별도 추적해 토글 판단, 지도 객체 자체에 `click` 리스너를 추가해 외부클릭 닫기를 구현했다.
+
+**4. "자세히 보기" 버튼을 눌러도 카드만 닫히고 Step4로 안 넘어감**
+3번에서 추가한 "지도 클릭 시 카드 닫기" 기능이 원인이었다. 카카오맵 SDK는 CustomOverlay(카드) 위에서 발생한 클릭도 "지도 영역 클릭"으로 함께 감지한다 — 마커 클릭과는 다르게 오버레이 클릭은 지도 클릭과 분리되지 않았던 것. 그 결과 버튼 클릭 이벤트가 실제로 처리되기 전에 `closeBuildingOverlay()`가 먼저 실행되어 카드(버튼 포함)가 DOM에서 삭제되고, 이미 삭제된 버튼은 자기 클릭 이벤트를 받을 수 없어 Step4 이동 로직이 아예 실행되지 않았다. `kakao. maps.event.preventMap()`으로 카드 영역의 `mousedown`/`touchstart` 시점에 "이 상호작용은 지도 이벤트로 처리하지 말라"고 미리 선언해 해결. `click`이 아닌 `mousedown`/`touchstart`에 건 이유는, 카카오맵이 지도 상호작용 여부를 판단하는 시점이 `click`보다 이르기 때문(더 늦은 시점에 방어하면 이미 판단이 끝난 뒤라 효과가 없음).
+
+### 오늘 배운 것 / 느낀 점
+- Task 3-3에서 실패했던 BottomSheet 방식과 오늘 CustomOverlay 방식의 차이는 결국 "어느 렌더링 세계에서 그리는가"였다. Flutter 파이프라인 vs 브라우저 DOM — 같은 세계에서 그리면 렌더링 충돌 자체가 성립하지 않는다. 다만 "같은 세계"라서 새로 생기는 문제(이벤트 버블링/감지 범위 문제, 4번 이슈)도 있다는 걸 이번에 알게 됐다 — 충돌이 사라진다고 모든 상호작용 문제가 같이 사라지는 건 아니다.
+- 버그 원인을 추적할 때 "그 파일 자체"만 보지 말고 "그 파일을 누가, 어디서 불러오는지"까지 한 겹 더 봐야 한다는 걸 다시 확인했다 (2번 이슈).
+- 외부 SDK(카카오맵)를 새 방식으로 쓸 때는, 공식 문서·예제에 있는 "이런 상황을 위한 전용 함수"(`preventMap()`)가 있는지부터 찾아보는 게 직접 이벤트 흐름을 역추적하는 것보다 훨씬 빠르다.
+
+### 다음에 할 일
+- `feature/frontend-step1-step3-rework` 완료 → `feature/frontend-step4-refactor` 기준 PR 생성
+- 이후 `feature/frontend-step4-refactor` → main 순으로 병합 진행
+- Task 4-2 API 명세 최종 협의 (With. BE)
+
+---

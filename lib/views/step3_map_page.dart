@@ -3,9 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/building_provider.dart';
-import '../services/kakao_map_view_registry.dart';
-import '../models/building.dart';
+import 'package:surbi_web/providers/building_provider.dart';
+import 'package:surbi_web/services/kakao_map_view_registry.dart';
 
 class Step3MapPage extends ConsumerStatefulWidget {
   final String regionCode;
@@ -23,7 +22,12 @@ class _Step3MapPageState extends ConsumerState<Step3MapPage> {
 
     onBuildingMarkerTap = (building) {
       ref.read(selectedBuildingProvider.notifier).state = building;
-      _showBuildingBottomSheet(building);
+      showBuildingOverlay(building); // ⭐ BottomSheet 대신 오버레이 카드
+    };
+
+    onBuildingDetailTap = (building) {
+      closeBuildingOverlay(); // ⭐ Step4로 넘어가기 전에 카드부터 닫음
+      context.push('/step4/${building.buildingId}');
     };
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -35,133 +39,51 @@ class _Step3MapPageState extends ConsumerState<Step3MapPage> {
   @override
   void dispose() {
     onBuildingMarkerTap = null;
+    onBuildingDetailTap = null; // ⭐ 추가
     super.dispose();
   }
 
-  void _showBuildingBottomSheet(Building building) {
-    final scoreColor = building.previewScore >= 70
-        ? Colors.green
-        : (building.previewScore >= 50 ? Colors.orange : Colors.red);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  building.buildingName,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E3A5F),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      size: 18,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        building.address,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Divider(color: Colors.grey.shade200, height: 1),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Icon(Icons.insights_outlined, size: 20, color: scoreColor),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '미리보기 점수',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${building.previewScore.toStringAsFixed(1)}점',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: scoreColor,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ⬇️ Step4 이동 버튼
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // BottomSheet 닫기
-                      context.push('/step4/${building.buildingId}');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A5F),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'AI 창업 점수 자세히 보기',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // ⬇️⬇️⬇️ 여기서부터 바뀐 부분 ⬇️⬇️⬇️
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('건물 탐색')),
-      body: const HtmlElementView(viewType: 'kakao-map-view'),
+      body: Stack(
+        children: [
+          // 1층 — 지도, 화면 전체를 그대로 채움
+          const HtmlElementView(viewType: 'kakao-map-view'),
+
+          // 2층 — 지도 위에 동동 뜨는 원형 뒤로가기 버튼
+          Positioned(top: 16, left: 16, child: _buildBackButton(context)),
+        ],
+      ),
+    );
+  }
+
+  // ⭐ 새로 추가된 메서드
+  Widget _buildBackButton(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 4,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/step2/${widget.regionCode}');
+          }
+        },
+        child: const Padding(
+          padding: EdgeInsets.all(10),
+          child: Icon(
+            Icons.chevron_left_rounded, // ⭐ rounded 버전으로 교체
+            color: Color(0xFF1E3A5F),
+            size: 32,
+          ),
+        ),
+      ),
     );
   }
 }
