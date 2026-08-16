@@ -461,6 +461,23 @@ final regionListProvider = Provider<List<Region>>((ref) {
   ];
 });
 
+/// 구 이름 목록만 뽑아주는 파생 Provider (중복 제거, 리스트 등장 순서 유지)
+final guNameListProvider = Provider<List<String>>((ref) {
+  final regions = ref.watch(regionListProvider);
+  return regions.map((r) => r.guName).toSet().toList();
+});
+
+/// 선택된 구에 속한 동(Region)만 필터링해서 반환
+/// guName이 null이면(구를 아직 안 골랐으면) 빈 리스트 반환
+final regionsByGuProvider = Provider.family<List<Region>, String?>((
+  ref,
+  guName,
+) {
+  if (guName == null) return [];
+  final regions = ref.watch(regionListProvider);
+  return regions.where((r) => r.guName == guName).toList();
+});
+
 /// 창업 카테고리 후보 목록 (Step 1 카테고리 버튼용)
 /// 2026-08-16 Phase 1.5 — CS코드 외식업 10종 실제값으로 교체
 /// (기존 4개는 코드-이름 매칭이 전부 틀려있었음. 출처: 3.2 DB 조회 결과 정리)
