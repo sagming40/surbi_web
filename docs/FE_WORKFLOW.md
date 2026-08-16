@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v4.0 |
+| 버전 | v4.1 |
 | 생성일 | 2026년 6월 18일 |
 | 최종 수정 | 2026년 8월 16일 |
 | 담당자 | 사공민규 |
@@ -13,8 +13,8 @@
 > 과거에 있었던 일(오류·판단 배경·PR 이력)은 **[docs/FE_DEVLOG.md]**가 담당합니다.
 
 > 💡 **전체 흐름** — 환경 구축 → 인증 → 화면 개발 → API 연동 → 품질 & 배포
-> 🗺️ **사용자 플로우(FE 구현 기준)** — Step 1 지역·업종 선택 → Step 2 상권 분석 → Step 3 건물 탐색(지도) → Step 4 AI 점수 허브
-> ⚠️ 이 플로우는 **기획서·DB팀 문서와 서로 다름** → 아래 "블로커" 참고
+> 🗺️ **사용자 플로우 (2026-08-16 재구조화)** — ① 지역·업종 선택 → ② 업소 지도 → ③ 상권 분석 → ④ AI 점수 허브
+> 8/3 대조표 회의 안건 2 "지도 먼저" 결정 반영. 경로에서 Step 번호 제거 — 아래 "라우트 맵" 참고.
 
 ---
 
@@ -22,20 +22,20 @@
 
 | 순위 | 작업 | 상태 | 비고 |
 | --- | --- | --- | --- |
-| **1** | **Task 4-2 · API 협의 문서 v2.0 송부** | 🔄 진행 | 팀 문서 갱신분(8/7 DB · 8/15 ML) 반영해 전면 재작성 |
-| **2** | Task 4-2 · Step 순서 정본 확정 (전체 회의) | ⏸️ 회의 대기 | 기획서 / FE / DB팀 3자 불일치 |
-| **3** | Task 4-2 · 세분화 점수 5종 `scores` 확장 가능 여부 (ML) | ⏸️ 회신 대기 | **Step 4 재설계 여부가 여기서 갈림** |
-| 4 | 무의존 선행 작업 3건 (아래 참고) | ⏳ 착수 가능 | BE 회신 없이도 진행 가능 |
-| 5 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | 엔드포인트 일정 미회신 |
-| 6 | Task 2-5 · Firestore 연동 | ⏳ 대기 | `users`/`favorites` 테이블 존폐 확인 후 |
+| **1** | **Task 4-2 · API 협의 문서 v2.0 송부** | 🔄 진행 | Notion 게시 + Discord 공유 |
+| **2** | Task 4-2 · 세분화 점수 5종 `scores` 확장 가능 여부 (ML) | ⏸️ 회신 대기 | **Step 4 재설계 여부가 여기서 갈림** |
+| 3 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | 엔드포인트 일정 미회신 |
+| 4 | Task 2-5 · Firestore 연동 | ⏳ 대기 | `users`/`favorites` 테이블 존폐 확인 후 |
+| 5 | `context.push()` URL 미동기화 버그 원인 조사 | ⏳ 대기 | EPIC 5 배포 전 필수 (DEVLOG 미해결 11번) |
 
-### 🟢 BE 회신 없이 지금 착수 가능한 작업
+### 🟢 BE 회신 없이 착수 가능한 작업
 
-| 작업 | 근거 | 영향 파일 |
+| 작업 | 근거 | 상태 |
 | --- | --- | --- |
-| Step 1 카테고리 버튼 → **CS코드 외식업 10종**으로 교체 | DB팀 3_3 [전체] 3번 확정 | `region_provider.dart`, `step1_region_page.dart` |
-| 체크리스트 항목 **FE 고정 문구로 확정** | DB팀 3_3 [전체] 6번 "체크리스트 테이블 없음, FE 고정 권장" | `checklist_provider.dart` |
-| 정책 리스트 **필터 파라미터 제거 → 전체 표시** | DB팀 3_3 [BE] 1번 "업종/지역 필터 불가" | `policy_list_page.dart`, `government_policy.dart` |
+| Step 1 카테고리 버튼 → CS코드 외식업 10종 교체 | DB팀 3_3 [전체] 3번 | ✅ **완료** (Phase 1.5) |
+| 상권분석 화면 지표 표기 정정 (경쟁도 %→개수, 유동인구 축약, 임대료 자치구 명시, 기준분기 표기) | 대조표 🟢 2·3·5·7번 | ✅ **완료** (Phase 4) |
+| 체크리스트 항목 **FE 고정 문구로 확정** | DB팀 3_3 [전체] 6번 | ⏳ 미착수 — `checklist_provider.dart` |
+| 정책 리스트 **필터 파라미터 제거 → 전체 표시** | DB팀 3_3 [BE] 1번 | ⏳ 미착수 — `policy_list_page.dart` |
 
 ---
 
@@ -44,8 +44,8 @@
 | # | 블로커 | 성격 | 해소 조건 |
 | --- | --- | --- | --- |
 | **B1** | **`scores` 테이블에서 세부 점수 7종 + `score_reason` 전부 삭제됨** | 설계 붕괴 | ML이 세분화 점수 5종을 함께 내려줄 수 있는지 회신 |
-| **B2** | **`buildings` 테이블이 존재하지 않음** — Step 3 데이터 근거 없음 | 설계 붕괴 | Step 3을 "업소(businesses) 탐색"으로 재정의할지 팀 결정 |
-| **B3** | **Step 순서가 기획서 / FE / DB팀 3자 불일치** | 기획 미확정 | 전체 회의에서 정본 확정 |
+| ~~B2~~ | ~~`buildings` 테이블 부재~~ | ✅ **해소** | 8/16 Phase 3 — Building → Business(업소) 재정의 완료 |
+| ~~B3~~ | ~~Step 순서 불일치~~ | ✅ **해소** | 8/3 대조표 안건 2 "지도 먼저" 확정 → 8/16 Phase 1 반영 완료 |
 | **B4** | LLM 보고서 입력값이 무엇인지 불명 (`score_reason` 소멸) | 명세 미확정 | ML·BE 회신 |
 
 ### ❓ 착수 전 결정이 필요한 사항
@@ -186,7 +186,8 @@ CS100005 제과점        CS100010 커피-음료
 
 ## 📁 폴더 구조
 
-> ✅ **2026-08-16 `git ls-files lib/`로 실물 검증 완료** (총 41개 파일)
+> ✅ **2026-08-16 Phase 1~4 재구조화 완료** (총 41개 파일)
+> 경로·파일명에서 Step 번호 제거 — 순서가 또 바뀌어도 파일은 안 건드리도록.
 > `(예정)` 표시는 아직 생성되지 않은 파일입니다.
 
 ```
@@ -197,9 +198,9 @@ lib/
 │   ├── router.dart               # go_router 전체 라우트 (StatefulShellRoute 포함)
 │   └── theme.dart                # SurbiColors · TextStyle · ButtonStyle
 ├── models/                       # 7개
-│   ├── region.dart               # 지역 / 행정동 (구·동 드롭다운에서 재활용)
-│   ├── commercial_area.dart      # 상권 분석 결과
-│   ├── building.dart             # ⚠️ B2 — buildings 테이블 부재로 재정의 대상
+│   ├── region.dart               # 지역 / 행정동 (구·동 드롭다운)
+│   ├── area_analysis.dart        # 상권 분석 결과 + CategorySales (Phase 4 신규)
+│   ├── business.dart             # 업소 정보 (Phase 3 — building.dart 대체)
 │   ├── score_result.dart         # ⚠️ B1 — scores 축소로 재설계 대상
 │   ├── report.dart               # LLM 보고서 (7필드)
 │   ├── government_policy.dart    # 정부 지원사업 (DB 스키마 기준 필드명)
@@ -210,16 +211,18 @@ lib/
 │   ├── (예정) auth_service.dart       # Task 2-2
 │   └── (예정) api_service.dart        # Task 2-4
 ├── providers/                    # 6개
-│   ├── auth_provider.dart · region_provider.dart · area_provider.dart
-│   ├── building_provider.dart · score_provider.dart
+│   ├── auth_provider.dart · region_provider.dart
+│   ├── area_provider.dart        # areaAnalysisProvider (Phase 4)
+│   ├── business_provider.dart    # businessesProvider (Phase 3)
+│   ├── score_provider.dart
 │   └── checklist_provider.dart   # StateNotifierProvider + 파생 진행률
 ├── views/                        # 5개
-│   ├── step1_region_page.dart    # 구/동 2단계 드롭다운 + Kakao 지도 마커
-│   ├── step2_dashboard_page.dart
-│   ├── step3_map_page.dart       # 지도 + 마커 + CustomOverlay 카드
+│   ├── region_select_page.dart   # ① 구/동 드롭다운 + Kakao 지도 마커
+│   ├── map_page.dart             # ② 업소 지도 + CustomOverlay 카드
+│   ├── analysis_page.dart        # ③ 상권 분석 (매출 TOP5 + 지표 4종)
 │   ├── policy_list_page.dart · checklist_page.dart
-│   ├── (예정) landing_page.dart       # ⚠️ 현재 router.dart의 PlaceholderPage 사용 추정
-│   ├── (예정) login_page.dart         # ⚠️ 동상 — Task 2-2
+│   ├── (예정) landing_page.dart       # 현재 router.dart의 PlaceholderPage 사용
+│   ├── (예정) login_page.dart         # Task 2-2
 │   └── (예정) auth_callback_page.dart # Task 2-2
 └── widgets/                      # 17개
     ├── common/                   # 7개
@@ -227,8 +230,8 @@ lib/
     │   ├── surbi_app_bar.dart · surbi_card.dart
     │   ├── surbi_dropdown.dart        # OverlayEntry + LayerLink 커스텀 드롭다운
     │   └── surbi_loading.dart · surbi_error.dart · surbi_empty.dart
-    └── step4/                    # 10개
-        ├── step4_shell.dart           # LayoutBuilder 900px 분기 + 탭바
+    └── step4/                    # 10개 ⚠️ 폴더명은 아직 step4 유지
+        ├── score_shell.dart           # ④ 허브 — LayoutBuilder 900px 분기 + 탭바
         ├── score_hub_panel.dart       # 게이지 + 예상성과 + SHAP 카드 묶음
         ├── score_gauge.dart           # CustomPainter 원형 게이지
         ├── shap_bar_chart.dart        # ⚠️ B1 — 데이터 근거 소멸
@@ -236,9 +239,24 @@ lib/
         ├── policy_card.dart
         └── checklist_item_card.dart · checklist_progress_bar.dart
 
-※ widgets/step2/ 폴더 없음 — Step 2는 page 내부 private 메서드로 구현
-※ models/user.dart 없음 (기존 문서 오기), report.dart가 실제 구성 요소
+※ widgets/step2/ 폴더 없음
+※ widgets/step4/ 폴더명만 Step 번호가 남아있음 — 파일명 정리 시 함께 검토 대상
 ```
+
+### 🗺️ 라우트 맵
+
+| 팀 호칭 | URL | 화면 파일 |
+| --- | --- | --- |
+| — | `/` · `/login` | (PlaceholderPage) |
+| Step 1 | `/select` | `region_select_page.dart` |
+| Step 2 | `/map/:districtCode/:categoryCode` | `map_page.dart` |
+| Step 3 | `/analysis/:districtCode/:categoryCode` | `analysis_page.dart` |
+| Step 4 | `/score/:districtCode/:categoryCode` | `score_shell.dart` |
+| └ 보고서 | `/score/.../report` | `report_page.dart` |
+| └ 정부지원 | `/score/.../policies` | `policy_list_page.dart` |
+| └ 체크리스트 | `/score/.../checklist` | `checklist_page.dart` |
+
+> ⚠️ `:buildingId` 폐기됨 — 점수 단위가 건물 → 행정동+업종으로 확정(8/3 대조표 안건 1)
 
 ---
 
@@ -392,14 +410,15 @@ service cloud.firestore {
 
 | Step | 미완 항목 | 상태 / 연결 Task |
 | --- | --- | --- |
-| 1 | 카테고리 버튼 → CS코드 10종 교체 | 🟢 **지금 착수 가능** |
+| 1 | ~~카테고리 버튼 CS코드 교체~~ | ✅ 완료 (Phase 1.5) |
 | 1 | 구/동 목록 하드코딩 제거 → 행정동 목록 API | Task 4-3 (API 제공 가능 확인됨) |
-| 1 | 히트맵 실데이터 (geom 기반 색칠) | ⚠️ `districts.geom` 적재 여부 확인 필요 — 적재됐으면 블로커 해제 |
-| 2 | 비교 차트 → **TOP5 매출 순위**로 방향 확정 | Task 4-4 |
-| 2 | 소비 패턴(시간대/성별/연령) 차트 | Task 4-4 — DB 응답 형식 확인됨(원본 정수) |
-| 2 | 임대료 "자치구 단위" 문구 명시 | 🟢 **지금 착수 가능 (FE 자체)** |
-| 3 | 건물 → 업소 재정의 여부 | ⏸️ **B2 블로커** |
-| 3 | 오버레이 카드 거리 표시 | Task 4-5 |
+| 1 | 히트맵 실데이터 (geom 기반 색칠) | ⚠️ `districts.geom` 적재 여부 확인 필요 |
+| 2(지도) | ~~건물 → 업소 재정의~~ | ✅ 완료 (Phase 3) |
+| 2(지도) | 마커 클러스터링 | Task 4-5 — 실데이터 464개 붙은 후 |
+| 2(지도) | 오버레이 카드 거리 표시 | Task 4-5 |
+| 3(분석) | ~~비교 차트 → TOP5 매출 순위~~ | ✅ 완료 (Phase 4) |
+| 3(분석) | ~~지표 표기 정정(경쟁도·유동인구·임대료·분기)~~ | ✅ 완료 (Phase 4) |
+| 3(분석) | 소비 패턴(시간대/성별/연령) 차트 | Task 4-4 |
 | 4 | 세부 점수·SHAP 패널 존폐 | ⏸️ **B1 블로커** |
 | 4 | 체크리스트 고정 문구 확정 | 🟢 **지금 착수 가능** |
 | 4 | 정책 카드 필터 파라미터 제거 | 🟢 **지금 착수 가능** |
@@ -479,7 +498,7 @@ Future<String> pollReport(String reportId) async {
 
 - [ ] Custom Token 수신 → Firebase 로그인 완료 구현
 - [ ] `AuthCallbackPage`에 실제 로직 연결
-- [ ] 성공 시 `/step1` 이동 / 실패 시 에러 안내 후 `/login` 복귀
+- [ ] 성공 시 `/select` 이동 / 실패 시 에러 안내 후 `/login` 복귀
 
 ---
 
@@ -575,4 +594,4 @@ Future<String> pollReport(String reportId) async {
 
 ---
 
-*FRONT-END WORKFLOW v4.0 · 사공민규 · 최종 수정: 2026.08.16*
+*FRONT-END WORKFLOW v4.1 · 사공민규 · 최종 수정: 2026.08.16*
