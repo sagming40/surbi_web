@@ -440,13 +440,15 @@ service cloud.firestore {
 
 ### 🔄 Task 4-2 · 백엔드 API 명세 확정 (With. BE)
 
-> 📎 **명세 전문**: **[docs/API_명세_협의_요청사항.md](API_명세_협의_요청사항.md)** — **v2.0 재작성 완료**
-> **현황**: 팀 문서 갱신분 반영해 전면 재작성. P1 9건 · P2 11건.
+> 📎 **명세 전문**: **[docs/API_명세_협의_요청사항.md](API_명세_협의_요청사항.md)** — **v2.1**
+> **현황**: Discord 확인분 반영 + 확정 사항 분리. **P1 7건 · P2 11건** (ML 6 / BE 10 / DB 5)
 
-- [ ] Step 순서 정본 확정 (전체 회의)
-- [ ] 세분화 점수 5종 `scores` 확장 가능 여부 (ML)
-- [ ] Step 3 데이터 근거 재정의 (BE)
-- [ ] 인증 엔드포인트 일정 합의
+- [x] ~~Step 순서 정본 확정~~ → 8/3 회의 확정, FE 반영 완료
+- [x] ~~Step 3 데이터 근거 재정의~~ → 행정동+업종 단위 확정, FE 반영 완료
+- [ ] **P1-1** 세분화 점수 5종 `scores` 확장 가능 여부 (ML)
+- [ ] **P1-2** LLM 보고서 입력값 (ML·BE)
+- [ ] **P1-4** 업종 코드 변환 주체 (BE)
+- [ ] **P1-5** 인증 엔드포인트 일정 (BE)
 - [ ] 합의된 명세 기반으로 `models/` 코드 확정
 
 **엔드포인트 목록 (DB팀 3_4 제안 기준으로 전면 교체)**
@@ -455,13 +457,13 @@ service cloud.firestore {
 | --- | --- | --- | --- |
 | `GET /api/categories` | ❌ | 업종 드롭다운 (CS코드 10종) | 🆕 신규 |
 | `GET /api/districts?gu={구명}` | ❌ | Step 1 구/동 드롭다운 | 🆕 신규 (제공 가능 확인) |
-| `GET /api/map/heatmap?category_code=` | ❌ | Step 1 히트맵 (GeoJSON + score) | ⚠️ geom 적재 확인 필요 |
+| `GET /api/map/heatmap?category_code=` | ❌ | Step 1 히트맵 (GeoJSON + score) | 🔄 geom 적재 진행 중 (8/16 확인) |
 | `GET /api/analysis?district_name=&category_code=` | ❓ | Step 2 대시보드 (5종 통합 응답) | 🆕 BFF형 |
 | `GET /api/scores?district_name=&category_code=` | ❓ | Step 4 점수 3종 | 🔄 파라미터 변경 |
 | `GET /api/supports?period=current` | ❌ | Step 4 정부지원 (필터 없음) | 🔄 필터 제거 |
 | `POST /reports/generate` · `GET /reports/{id}` | ❓ | Step 4 보고서 (생성/폴링) | ⏸️ 입력값 미정 |
 | `POST /auth/kakao` · `POST /auth/naver` | ❌ | 로그인 콜백 | ⏸️ 일정 미정 |
-| ~~`GET /buildings?lat=&lng=&r=`~~ | — | ~~Step 3~~ | ❌ **테이블 부재로 폐기 검토** |
+| `GET /api/businesses?district_name=&category_code=` | ❌ | ② 업소 지도 마커 | 🆕 신규 (buildings 폐기 대체) |
 | ~~`POST /favorites`~~ | — | ~~스크랩~~ | ❌ **테이블 부재로 재검토** |
 
 ---
