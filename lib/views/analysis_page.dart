@@ -8,8 +8,8 @@ import '../providers/area_provider.dart';
 import '../providers/region_provider.dart'; // ⭐ Phase 1 — categoryCode 참조용
 
 /// Step 2: 선택 지역 상권 분석 대시보드
-class Step2DashboardPage extends ConsumerWidget {
-  const Step2DashboardPage({
+class AnalysisPage extends ConsumerWidget {
+  const AnalysisPage({
     super.key,
     required this.regionCode,
     required this.categoryCode,

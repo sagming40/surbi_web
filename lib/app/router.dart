@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
-import 'package:surbi_web/widgets/step4/step4_shell.dart'; // ⭐ Phase 3 추가
-import 'package:surbi_web/views/step1_region_page.dart';
-import 'package:surbi_web/views/step2_dashboard_page.dart'; // ⭐ 새로 추가
-import 'package:surbi_web/views/step3_map_page.dart'; // ⭐ 새로 추가
+import 'package:surbi_web/widgets/step4/score_shell.dart'; // ⭐ Phase 3 추가
+import 'package:surbi_web/views/region_select_page.dart';
+import 'package:surbi_web/views/analysis_page.dart'; // ⭐ 새로 추가
+import 'package:surbi_web/views/map_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/widgets/step4/report_page.dart';
 import 'package:surbi_web/views/policy_list_page.dart'; // ⭐ Task 3-6 추가
 import 'package:surbi_web/views/checklist_page.dart'; // ⭐ Task 3-7 추가
@@ -79,7 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/select',
         builder: (context, state) =>
-            const ResponsiveLayout(child: Step1RegionPage()),
+            const ResponsiveLayout(child: RegionSelectPage()),
       ),
 
       // ② 업소 지도 — 선택한 동네의 경쟁 업소 분포 확인
@@ -91,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final categoryCode = state.pathParameters['categoryCode']!;
           return ResponsiveLayout(
             maxWidth: double.infinity, // 지도 화면 — 폭 제한 없음
-            child: Step3MapPage(
+            child: MapPage(
               regionCode: districtCode,
               categoryCode: categoryCode,
             ),
@@ -106,7 +106,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final districtCode = state.pathParameters['districtCode']!;
           final categoryCode = state.pathParameters['categoryCode']!;
           return ResponsiveLayout(
-            child: Step2DashboardPage(
+            child: AnalysisPage(
               regionCode: districtCode,
               categoryCode: categoryCode,
             ),
@@ -138,7 +138,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               final districtCode = state.pathParameters['districtCode']!;
               return ResponsiveLayout(
                 maxWidth: 1200, // 2컬럼 레이아웃이라 기본 500보다 넓게
-                child: Step4Shell(
+                child: ScoreShell(
                   // TODO(Phase 3): 파라미터명을 districtCode+categoryCode로 교체
                   // 지금은 buildingId 자리에 districtCode를 넘겨 동작만 유지
                   buildingId: districtCode,

@@ -8,8 +8,8 @@ import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
 import 'package:surbi_web/services/kakao_map_view_registry.dart'; // ⭐ 추가
 
 /// Step 1: 지역 및 카테고리 선택 화면
-class Step1RegionPage extends ConsumerWidget {
-  const Step1RegionPage({super.key});
+class RegionSelectPage extends ConsumerWidget {
+  const RegionSelectPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -6,21 +6,21 @@ import 'package:go_router/go_router.dart';
 import 'package:surbi_web/providers/building_provider.dart';
 import 'package:surbi_web/services/kakao_map_view_registry.dart';
 
-class Step3MapPage extends ConsumerStatefulWidget {
+class MapPage extends ConsumerStatefulWidget {
   final String regionCode;
   final String categoryCode; // ⭐ Phase 1 — /score 이동 시 필요
 
-  const Step3MapPage({
+  const MapPage({
     super.key,
     required this.regionCode,
     required this.categoryCode,
   });
 
   @override
-  ConsumerState<Step3MapPage> createState() => _Step3MapPageState();
+  ConsumerState<MapPage> createState() => _MapPageState();
 }
 
-class _Step3MapPageState extends ConsumerState<Step3MapPage> {
+class _MapPageState extends ConsumerState<MapPage> {
   @override
   void initState() {
     super.initState();
