@@ -1,13 +1,17 @@
+// lib/views/analysis_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart'; // ⭐ 새로 추가
+import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../app/theme.dart';
-import '../models/commercial_area.dart';
+import '../models/area_analysis.dart';
 import '../providers/area_provider.dart';
-import '../providers/region_provider.dart'; // ⭐ Phase 1 — categoryCode 참조용
+import '../widgets/common/surbi_app_bar.dart';
+import '../widgets/common/surbi_card.dart';
 
-/// Step 2: 선택 지역 상권 분석 대시보드
+/// 상권 분석 대시보드 — 선택한 행정동 1곳의 상세 지표
 class AnalysisPage extends ConsumerWidget {
   const AnalysisPage({
     super.key,
@@ -16,43 +20,36 @@ class AnalysisPage extends ConsumerWidget {
   });
 
   final String regionCode; // 행정동 코드 (route parameter)
-  final String categoryCode; // ⭐ Phase 1 — URL에서 직접 받음, Provider 의존 제거
+  final String categoryCode; // 업종 코드 (route parameter)
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final areas = ref.watch(areasProvider);
+    final analysis = ref.watch(areaAnalysisProvider);
 
     return Scaffold(
       backgroundColor: SurbiColors.primary,
-      appBar: AppBar(
-        backgroundColor: SurbiColors.primary,
-        elevation: 0,
-        title: const Text(
-          '상권 분석',
-          style: TextStyle(
-            color: SurbiColors.accent,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: SurbiColors.accent),
-      ),
+      appBar: const SurbiAppBar(title: '상권 분석'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFootTrafficChart(areas), // ⭐ 새로 추가
-              const SizedBox(height: 24),
+              _buildHeader(analysis),
+              const SizedBox(height: 20),
               Expanded(
-                child: ListView.separated(
-                  itemCount: areas.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    return _buildAreaCard(context, ref, areas[index]);
-                  },
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildSalesChart(analysis),
+                      const SizedBox(height: 20),
+                      _buildIndicators(analysis),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 20),
+              _buildScoreButton(context),
             ],
           ),
         ),
@@ -60,42 +57,72 @@ class AnalysisPage extends ConsumerWidget {
     );
   }
 
-  /// 지역별 유동인구 비교 막대그래프
-  Widget _buildFootTrafficChart(List<CommercialArea> areas) {
-    return Container(
-      height: 240, // 220 → 240으로 살짝 늘림 (숫자 라벨 공간 확보)
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(SurbiRadius.card),
-        border: Border.all(color: SurbiColors.placeholderGray),
-      ),
+  /// 헤더 — 지금 어느 동네·업종을 보고 있는지 + 기준 분기
+  Widget _buildHeader(AreaAnalysis a) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${a.districtName} · ${a.categoryName}',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: SurbiColors.accent,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${_periodLabel(a.periodCode)} 기준',
+          style: const TextStyle(fontSize: 13, color: SurbiColors.textGray),
+        ),
+      ],
+    );
+  }
+
+  /// 20261 → 2026년 1분기
+  String _periodLabel(String periodCode) {
+    if (periodCode.length != 5) return periodCode;
+    return '${periodCode.substring(0, 4)}년 ${periodCode.substring(4)}분기';
+  }
+
+  /// 업종별 매출 TOP5 — 선택 업종을 강조 색으로 표시
+  Widget _buildSalesChart(AreaAnalysis a) {
+    final maxSales = a.topSales.isEmpty
+        ? 1
+        : a.topSales.map((s) => s.monthlySales).reduce((x, y) => x > y ? x : y);
+
+    return SurbiCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '지역별 유동인구 비교',
+            '이 동네 업종별 매출 TOP 5',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: SurbiColors.accent,
             ),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            '선택한 업종이 이 동네에서 어느 위치인지 확인하세요',
+            style: TextStyle(fontSize: 12, color: SurbiColors.textGray),
+          ),
           const SizedBox(height: 16),
-          Expanded(
+          SizedBox(
+            height: 200,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: 20000,
-                // ⭐ 막대그래프 수정
+                maxY: maxSales.toDouble(),
                 barTouchData: BarTouchData(
-                  enabled: true, // ⭐ false → true
+                  enabled: true,
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (group) => SurbiColors.accent,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final area = areas[group.x];
+                      final item = a.topSales[group.x];
                       return BarTooltipItem(
-                        '${area.regionName}\n${rod.toY.toInt()}명',
+                        '${item.categoryName}\n${_salesLabel(item.monthlySales)}',
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -103,7 +130,7 @@ class AnalysisPage extends ConsumerWidget {
                       );
                     },
                   ),
-                ), // ⭐ 막대그래프 수정
+                ),
                 gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -119,22 +146,27 @@ class AnalysisPage extends ConsumerWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 32, // ⭐ 새로 추가 — 라벨 자리를 32픽셀로 넉넉하게 확보
+                      reservedSize: 44,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= areas.length) {
+                        if (index < 0 || index >= a.topSales.length) {
                           return const SizedBox.shrink();
                         }
-                        final shortName = areas[index].regionName
-                            .split(' ')
-                            .last;
+                        final isSelected =
+                            a.topSales[index].categoryCode == a.categoryCode;
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            shortName,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: SurbiColors.textGray,
+                            a.topSales[index].categoryName,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected
+                                  ? SurbiColors.accent
+                                  : SurbiColors.textGray,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         );
@@ -142,30 +174,23 @@ class AnalysisPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                barGroups: areas.asMap().entries.map((entry) {
+                barGroups: a.topSales.asMap().entries.map((entry) {
                   final index = entry.key;
-                  final area = entry.value;
+                  final item = entry.value;
+                  final isSelected = item.categoryCode == a.categoryCode;
                   return BarChartGroupData(
                     x: index,
                     barRods: [
                       BarChartRodData(
-                        toY: area.footTraffic.toDouble(),
-                        // ⭐ 막대그래프 수정
-                        color: area.score >= 70
-                            ? SurbiColors.success
-                            : SurbiColors.accent, // ⭐ 점수 기준 색상 분기
+                        toY: item.monthlySales.toDouble(),
+                        // 선택 업종만 강조색, 나머지는 흐리게
+                        color: isSelected
+                            ? SurbiColors.accent
+                            : SurbiColors.placeholderGray,
                         width: 28,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(6),
                           topRight: Radius.circular(6),
-                        ),
-                        backDrawRodData: BackgroundBarChartRodData(
-                          show: true,
-                          toY: 20000,
-                          color: SurbiColors.placeholderGray.withValues(
-                            alpha: 0.3,
-                          ),
-                          // ⭐ 막대그래프 수정
                         ),
                       ),
                     ],
@@ -179,98 +204,125 @@ class AnalysisPage extends ConsumerWidget {
     );
   }
 
-  /// 상권 카드 한 개 (지역명 + 점수 + 유동인구/경쟁도/폐업위험도 요약)
-  Widget _buildAreaCard(
-    BuildContext context,
-    WidgetRef ref,
-    CommercialArea area,
-  ) {
-    // ⭐ Material => Container가 갖고 있던 color: Colors.white 역할
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(SurbiRadius.card),
-      // ⭐ GestureDetector → InkWell => UX 개선(터치감, 피드백 부재)
-      child: InkWell(
-        onTap: () {
-          ref.read(selectedAreaProvider.notifier).state = area;
-          // 새로고침·직접 진입해도 항상 유효한 URL 파라미터 사용
-          // (Provider 상태는 새로고침 시 초기화되므로 여기서 읽으면 안 됨)
-          context.push('/score/${area.regionCode}/$categoryCode');
-        },
-        borderRadius: BorderRadius.circular(SurbiRadius.card),
-        splashColor: SurbiColors.accent.withValues(alpha: 0.1),
-        highlightColor: SurbiColors.accent.withValues(alpha: 0.05),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(SurbiRadius.card),
-            border: Border.all(color: SurbiColors.placeholderGray),
+  /// 핵심 지표 4종
+  Widget _buildIndicators(AreaAnalysis a) {
+    return SurbiCard(
+      child: Column(
+        children: [
+          _buildIndicatorRow(
+            icon: Icons.people_outline,
+            label: '유동인구',
+            value: _populationLabel(a.dailyPopulation),
+            note: '하루 평균',
           ),
+          const Divider(height: 24),
+          _buildIndicatorRow(
+            icon: Icons.storefront_outlined,
+            label: '경쟁 업소',
+            value: '${a.competitorCount}개',
+            note: '동일 업종 영업중',
+          ),
+          const Divider(height: 24),
+          _buildIndicatorRow(
+            icon: Icons.trending_up,
+            label: '상권 변화',
+            value: '${a.trendGradeName} (${a.trendGrade})',
+            note: '서울시 상권변화지표',
+          ),
+          const Divider(height: 24),
+          _buildIndicatorRow(
+            icon: Icons.home_work_outlined,
+            label: '임대료',
+            value: '${a.rentPerSqm.toStringAsFixed(1)}만원/㎡',
+            // ⚠️ rent_stats는 행정동이 아니라 상권명·자치구 단위 (대조표 🟢 7번)
+            note: '${a.rentGuName} ${a.rentAreaName} 기준',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String note,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: SurbiColors.accent),
+        const SizedBox(width: 12),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    area.regionName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: SurbiColors.accent,
-                    ),
-                  ),
-                  _buildScoreBadge(area.score),
-                ],
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: SurbiColors.textGray,
+                ),
               ),
-              const SizedBox(height: 12),
-              _buildStatRow('유동인구', '${area.footTraffic}명'),
-              _buildStatRow(
-                '경쟁도',
-                '${(area.competitionRate * 100).toStringAsFixed(0)}%',
-              ),
-              _buildStatRow(
-                '폐업 위험도',
-                '${(area.closureRisk * 100).toStringAsFixed(0)}%',
+              Text(
+                note,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: SurbiColors.textGray,
+                ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  /// 점수 배지 — 70점 이상이면 초록, 아니면 회색
-  Widget _buildScoreBadge(double score) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: score >= 70 ? SurbiColors.success : SurbiColors.textGray,
-        borderRadius: BorderRadius.circular(SurbiRadius.pill),
-      ),
-      child: Text(
-        '${score.toStringAsFixed(1)}점',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  /// 통계 한 줄 (라벨 + 값)
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: SurbiColors.textGray)),
-          Text(
-            value, // label → value로 수정
-            style: const TextStyle(fontWeight: FontWeight.w600),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: SurbiColors.accent,
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  /// 497272 → 49.7만명 (대조표 🟢 2번 — 자릿수 대응)
+  String _populationLabel(int count) {
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}만명';
+    }
+    return '${NumberFormat('#,###').format(count)}명';
+  }
+
+  /// 12169413866 → 121.7억
+  String _salesLabel(int sales) {
+    if (sales >= 100000000) {
+      return '${(sales / 100000000).toStringAsFixed(1)}억';
+    }
+    if (sales >= 10000) {
+      return '${(sales / 10000).toStringAsFixed(0)}만';
+    }
+    return NumberFormat('#,###').format(sales);
+  }
+
+  /// AI 창업 점수 화면으로 이동
+  Widget _buildScoreButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          context.push('/score/$regionCode/$categoryCode');
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: SurbiColors.accent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(SurbiRadius.pill),
+          ),
+        ),
+        child: const Text(
+          'AI 창업 점수 보기 →',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
