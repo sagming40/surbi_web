@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // CupertinoPageTransitionsBuilder용
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Task 1-3 추가
 import 'package:flutter_web_plugins/flutter_web_plugins.dart'; // Task 1-4 추가
 import 'app/router.dart'; // Task 1-4 추가
@@ -30,13 +31,13 @@ class SurbiApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1565C0)),
         // 추가 ㅡ BottomSheet를 밑으로 드래그 할때 지도가 같이 딸려 내려가는 현상 개선
         //        지도는 고정된 채 BottomSheet만 부드럽게 위/아래로
-        pageTransitionsTheme: const PageTransitionsTheme(
+        pageTransitionsTheme: PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: const FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
+            TargetPlatform.windows: const FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.macOS: const CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: const FadeUpwardsPageTransitionsBuilder(),
           },
         ),
       ),
