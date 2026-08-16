@@ -7,11 +7,11 @@ import 'package:surbi_web/widgets/step4/score_hub_panel.dart';
 
 // Step 4 허브 화면 — 게이지 패널(고정) + 3개 형제 탭(report/policies/checklist)
 // StatefulShellRoute의 builder에서 반환됨 (Phase 2의 임시 화면을 대체)
-class Step4Shell extends StatelessWidget {
+class ScoreShell extends StatelessWidget {
   final String buildingId;
   final StatefulNavigationShell navigationShell;
 
-  const Step4Shell({
+  const ScoreShell({
     super.key,
     required this.buildingId,
     required this.navigationShell,
@@ -32,7 +32,7 @@ class Step4Shell extends StatelessWidget {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go('/step1');
+                  context.go('/select');
                 }
               }
             });
@@ -40,7 +40,7 @@ class Step4Shell extends StatelessWidget {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/step1');
+              context.go('/select');
             }
           }
         },
@@ -59,7 +59,7 @@ class Step4Shell extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      _Step4TabBar(navigationShell: navigationShell),
+                      _ScoreTabBar(navigationShell: navigationShell),
                       const Divider(height: 1),
                       Expanded(child: navigationShell),
                     ],
@@ -75,7 +75,7 @@ class Step4Shell extends StatelessWidget {
             children: [
               const Expanded(flex: 4, child: ScoreHubPanel()),
               const Divider(height: 1),
-              _Step4TabBar(navigationShell: navigationShell),
+              _ScoreTabBar(navigationShell: navigationShell),
               const Divider(height: 1),
               Expanded(flex: 6, child: navigationShell),
             ],
@@ -87,10 +87,10 @@ class Step4Shell extends StatelessWidget {
 }
 
 // 3개 형제 탭 ㅡ 순서에 우열 없음 → 크기·스타일 완전 동일
-class _Step4TabBar extends StatelessWidget {
+class _ScoreTabBar extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
-  const _Step4TabBar({required this.navigationShell});
+  const _ScoreTabBar({required this.navigationShell});
 
   static const _labels = ['AI 보고서', '정부 지원사업', '체크리스트'];
 

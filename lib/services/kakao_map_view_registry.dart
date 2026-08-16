@@ -4,23 +4,23 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'dart:js_interop'; // 추가!
 import 'kakao_map_interop.dart'; // 추가!
-import 'package:surbi_web/models/building.dart';
+import 'package:surbi_web/models/business.dart';
 import 'package:surbi_web/models/region.dart'; // ⭐ 추가
 
 // ⬇️ 추가 — 지도 객체 전역 변수
 KakaoMap? kakaoMapInstance;
 
 // ⬇️ 추가 — 마커 Tap시 바깥에서 실행할 함수
-void Function(Building building)? onBuildingMarkerTap;
+void Function(Business business)? onBusinessMarkerTap;
 
-// ⬇️ 추가 — 오버레이 카드의 "자세히 보기" 버튼 눌렀을 때 바깥에서 실행할 함수
-void Function(Building building)? onBuildingDetailTap;
+// ⬇️ 추가 — 오버레이 카드의 버튼 눌렀을 때 바깥에서 실행할 함수
+void Function(Business business)? onBusinessDetailTap;
 
 // ⬇️ 추가 — 현재 지도 위에 떠있는 카드 (없으면 null, 최대 1개만 유지)
 KakaoCustomOverlay? _activeOverlay;
 
-// ⬇️ 추가 — 그 카드가 "어떤 건물"의 카드인지 같이 기억
-Building? _activeOverlayBuilding;
+// ⬇️ 추가 — 그 카드가 "어떤 업소"의 카드인지 같이 기억
+Business? _activeOverlayBusiness;
 
 /// Step 3 지도 화면에서 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
 /// main() 앱 시작할 때 딱 한 번만 호출하면 됨
@@ -46,7 +46,7 @@ void registerKakaoMapView() {
       map,
       'click',
       (() {
-        closeBuildingOverlay();
+        closeBusinessOverlay();
       }).toJS,
     );
 
@@ -62,11 +62,12 @@ void registerKakaoMapView() {
   });
 }
 
-// ⬇️ 새로 추가 — 건물 목록을 받아서 마커로 찍어주는 함수
-Future<void> addBuildingMarkers(List<Building> buildings) async {
+// ⬇️ 업소 목록을 받아서 마커로 찍어주는 함수
+// 2026-08-16 Phase 3 — Building(건물) → Business(업소) 재정의
+Future<void> addBusinessMarkers(List<Business> businesses) async {
   final map = kakaoMapInstance;
   if (map == null) return; // 지도가 아직 안 만들어졌으면 그냥 종료 (방어 코드)
-  if (buildings.isEmpty) return; // 건물이 하나도 없으면 그냥 종료 (방어 코드)
+  if (businesses.isEmpty) return; // 업소가 하나도 없으면 그냥 종료 (방어 코드)
 
   // ⬇️ 추가 ㅡ 지도 컨테이너가 실제로 자리 잡을 시간을 살짝 벌어줌
   await Future.delayed(const Duration(milliseconds: 300));
@@ -84,8 +85,8 @@ Future<void> addBuildingMarkers(List<Building> buildings) async {
     KakaoSize(44, 55),
   );
 
-  for (final building in buildings) {
-    final position = KakaoLatLng(building.lat, building.lng);
+  for (final business in businesses) {
+    final position = KakaoLatLng(business.lat, business.lng);
 
     final marker = KakaoMarker(
       KakaoMarkerOptions(
@@ -118,7 +119,7 @@ Future<void> addBuildingMarkers(List<Building> buildings) async {
       marker,
       'click',
       (() {
-        onBuildingMarkerTap?.call(building);
+        onBusinessMarkerTap?.call(business);
       }).toJS,
     );
 
@@ -128,45 +129,46 @@ Future<void> addBuildingMarkers(List<Building> buildings) async {
   map.setBounds(bounds);
 }
 
-// ⬇️ 새로 추가 — 마커 탭하면 이 함수가 호출되어 지도 위에 카드를 얹음
-void showBuildingOverlay(Building building) {
+// ⬇️ 마커 탭하면 이 함수가 호출되어 지도 위에 카드를 얹음
+void showBusinessOverlay(Business business) {
   final map = kakaoMapInstance;
   if (map == null) return; // 방어 코드
 
-  // ⭐ 추가 — 이미 열려있는 카드가 "지금 누른 그 건물"이면, 새로 열지 말고 그냥 닫기
-  if (_activeOverlayBuilding?.buildingId == building.buildingId) {
-    closeBuildingOverlay();
+  // ⭐ 이미 열려있는 카드가 "지금 누른 그 업소"면, 새로 열지 말고 그냥 닫기
+  if (_activeOverlayBusiness?.bizCode == business.bizCode) {
+    closeBusinessOverlay();
     return;
   }
 
   _activeOverlay?.setMap(null); // ⭐ 이전 카드 있으면 먼저 지움 (카드 중복 방지)
 
-  final cardElement = _buildOverlayCardElement(building);
+  final cardElement = _buildOverlayCardElement(business);
 
   final overlay = KakaoCustomOverlay(
     KakaoCustomOverlayOptions(
-      position: KakaoLatLng(building.lat, building.lng),
+      position: KakaoLatLng(business.lat, business.lng),
       content: cardElement,
       yAnchor: 1.3, // ⭐ 카드 하단이 핀 위쪽에 오도록 살짝 띄움
     ),
   );
   overlay.setMap(map);
   _activeOverlay = overlay; // ⭐ "현재 떠있는 카드"로 기억해둠
-  _activeOverlayBuilding = building; // ⭐ 추가 — "지금 이 건물 카드가 열려있다" 기록
+  _activeOverlayBusiness = business; // ⭐ "지금 이 업소 카드가 열려있다" 기록
 }
 
-// ⬇️ 새로 추가 — 카드 닫기 (버튼 눌러서 Step4로 이동할 때 등)
-void closeBuildingOverlay() {
+// ⬇️ 카드 닫기 (버튼 눌러서 상권 분석으로 이동할 때 등)
+void closeBusinessOverlay() {
   _activeOverlay?.setMap(null);
   _activeOverlay = null;
-  _activeOverlayBuilding = null; // ⭐ 추가
+  _activeOverlayBusiness = null;
 }
 
-// ⬇️ 새로 추가 — 건물 정보 카드를 실제 DOM 요소로 조립
-web.HTMLDivElement _buildOverlayCardElement(Building building) {
-  final scoreColor = building.previewScore >= 70
-      ? '#2E7D32' // 초록
-      : (building.previewScore >= 50 ? '#B86E00' : '#C62828'); // 주황 / 빨강
+// ⬇️ 업소 정보 카드를 실제 DOM 요소로 조립
+// 2026-08-16 Phase 3 — 미리보기 점수 제거
+//   근거: 점수는 행정동+업종 단위로만 산출 가능 (8/3 대조표 안건 1 확정),
+//         업소 단위 점수는 DB·ML 어디에도 존재하지 않음
+web.HTMLDivElement _buildOverlayCardElement(Business business) {
+  final isOpen = business.openStatus == '영업중';
 
   final card = web.HTMLDivElement()
     ..style.background = 'white'
@@ -176,7 +178,7 @@ web.HTMLDivElement _buildOverlayCardElement(Building building) {
     ..style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
     ..style.fontFamily = 'sans-serif';
 
-  // ⭐ 추가 — 카드 위에서 일어나는 마우스/터치 상호작용을
+  // ⭐ 카드 위에서 일어나는 마우스/터치 상호작용을
   //    "지도 클릭"으로 오인하지 않도록 카카오맵에 미리 알려줌
   card.addEventListener('mousedown', ((web.Event e) => kakaoPreventMap()).toJS);
   card.addEventListener(
@@ -185,20 +187,22 @@ web.HTMLDivElement _buildOverlayCardElement(Building building) {
   );
 
   final title = web.HTMLDivElement()
-    ..textContent = building.buildingName
+    ..textContent = business.bizName
     ..style.fontWeight = 'bold'
     ..style.fontSize = '15px'
     ..style.color = '#1E3A5F'
     ..style.marginBottom = '6px';
 
-  final scoreRow = web.HTMLDivElement()
-    ..textContent = '미리보기 점수 ${building.previewScore.toStringAsFixed(1)}점'
+  final statusRow = web.HTMLDivElement()
+    ..textContent = '${business.categoryName} · ${business.openStatus}'
     ..style.fontSize = '13px'
-    ..style.color = scoreColor
+    ..style.color = isOpen
+        ? '#2E7D32'
+        : '#757575' // 영업중=초록 / 그 외=회색
     ..style.marginBottom = '10px';
 
   final button = web.HTMLButtonElement()
-    ..textContent = 'AI 창업 점수 자세히 보기'
+    ..textContent = '이 동네 상권 분석 보기'
     ..style.width = '100%'
     ..style.padding = '8px'
     ..style.border = 'none'
@@ -212,12 +216,12 @@ web.HTMLDivElement _buildOverlayCardElement(Building building) {
   button.addEventListener(
     'click',
     (() {
-      onBuildingDetailTap?.call(building);
+      onBusinessDetailTap?.call(business);
     }).toJS,
   );
 
   card.append(title);
-  card.append(scoreRow);
+  card.append(statusRow);
   card.append(button);
 
   return card;
