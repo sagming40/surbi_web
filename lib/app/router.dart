@@ -45,7 +45,18 @@ final _checklistNavigatorKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   // ref는 지금 사용 안 함
   // EPIC 2에서 Firebase 연동 후 authStateProvider를 ref.watch()로 구독하고
-  // redirect 로직(로그인 전이면 /login으로, 로그인 후면 /step1으로) 추가 예정
+  // redirect 로직(로그인 전이면 /login으로, 로그인 후면 /select로) 추가 예정
+
+  // ══════════════════════════════════════════════
+  // 2026-08-16 플로우 재구조화 (Phase 1)
+  //   구: /step1 → /step2(분석) → /step3(지도) → /step4/:buildingId
+  //   신: /select → /map(지도) → /analysis(분석) → /score
+  //
+  //   ① 8/3 대조표 안건 2 — "지도 먼저"로 순서 확정
+  //   ② 8/3 대조표 안건 1 — 점수 단위가 건물 → 행정동+업종으로 확정
+  //      → :buildingId 폐기, :districtCode + :categoryCode 조합으로 교체
+  //   ③ 경로에서 Step 번호 제거 — 순서가 또 바뀌어도 경로는 안 건드리도록
+  // ══════════════════════════════════════════════
 
   return GoRouter(
     routes: [
@@ -64,80 +75,89 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Step 1: 지역·카테고리 선택
+      // ① 지역·업종 선택
       GoRoute(
-        path: '/step1',
+        path: '/select',
         builder: (context, state) =>
-            const ResponsiveLayout(child: Step1RegionPage()), // ⭐ 교체
+            const ResponsiveLayout(child: Step1RegionPage()),
       ),
 
-      // Step 2: 상권 분석 대시보드
-      // :regionCode = 행정동 코드 (예: /step2/1114013600)
+      // ② 업소 지도 — 선택한 동네의 경쟁 업소 분포 확인
+      // :districtCode = 행정동 코드 8자리 / :categoryCode = 업종 코드(CS1xxxxx)
       GoRoute(
-        path: '/step2/:regionCode',
+        path: '/map/:districtCode/:categoryCode',
         builder: (context, state) {
-          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          final districtCode = state.pathParameters['districtCode']!;
+          final categoryCode = state.pathParameters['categoryCode']!;
           return ResponsiveLayout(
-            child: Step2DashboardPage(regionCode: regionCode),
-          ); // ⭐ 교체
+            maxWidth: double.infinity, // 지도 화면 — 폭 제한 없음
+            child: Step3MapPage(
+              regionCode: districtCode,
+              categoryCode: categoryCode,
+            ),
+          );
         },
       ),
 
-      // Step 3: 지도 모드 — 건물 탐색
-      // :regionCode = 행정동 코드 (Step2에서 넘어옴)
+      // ③ 상권 분석 대시보드
       GoRoute(
-        path: '/step3/:regionCode',
+        path: '/analysis/:districtCode/:categoryCode',
         builder: (context, state) {
-          final regionCode = state.pathParameters['regionCode'] ?? '없음';
+          final districtCode = state.pathParameters['districtCode']!;
+          final categoryCode = state.pathParameters['categoryCode']!;
           return ResponsiveLayout(
-            maxWidth: double.infinity, // ⭐ Step3는 지도 화면 — 폭 제한 없음
-            child: Step3MapPage(regionCode: regionCode),
+            child: Step2DashboardPage(
+              regionCode: districtCode,
+              categoryCode: categoryCode,
+            ),
           );
         },
       ),
 
       // ══════════════════════════════════════════════
-      // Step 4 — StatefulShellRoute 리팩터링 (Phase 2)
-      // report/policies/checklist가 형제 자식으로 전환됨
+      // ④ AI 점수 허브 — StatefulShellRoute
+      // report/policies/checklist가 순서 우열 없는 형제 자식
       // ══════════════════════════════════════════════
-
-      // 기존 경로(/step4/:buildingId) 호환용 redirect
-      // Step 3에서 context.push('/step4/$buildingId')로 넘어오는 코드를
-      // 하나도 안 건드리기 위해, 진입 즉시 report 자식으로 리다이렉트
       GoRoute(
-        path: '/step4/:buildingId',
+        path: '/score/:districtCode/:categoryCode',
         redirect: (context, state) {
-          final buildingId = state.pathParameters['buildingId']!;
-          // ⚠️ redirect는 report/policies/checklist 전부의 부모.
-          // 자식으로 이동할 때마다 매번 새로고침됨. "이미 자식 경로에 있는 경우"엔
+          final districtCode = state.pathParameters['districtCode']!;
+          final categoryCode = state.pathParameters['categoryCode']!;
+          // ⚠️ 이 redirect는 report/policies/checklist 전부의 부모라서
+          // 자식으로 이동할 때마다 매번 재평가된다. "이미 자식 경로에 있는 경우"엔
           // redirect하면 안 되므로, 정확히 부모 경로 그 자체일 때만 이동시킴
-          if (state.uri.path == '/step4/$buildingId') {
-            return '/step4/$buildingId/report';
+          // (state.matchedLocation은 항상 부모 패턴이라 자식 구분 불가 → uri.path 사용)
+          if (state.uri.path == '/score/$districtCode/$categoryCode') {
+            return '/score/$districtCode/$categoryCode/report';
           }
           return null;
         },
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              final buildingId = state.pathParameters['buildingId']!;
+              final districtCode = state.pathParameters['districtCode']!;
               return ResponsiveLayout(
-                maxWidth: 1200, // ⭐ Step4는 2컬럼이라 기본 500보다 넓게 필요
+                maxWidth: 1200, // 2컬럼 레이아웃이라 기본 500보다 넓게
                 child: Step4Shell(
-                  buildingId: buildingId,
+                  // TODO(Phase 3): 파라미터명을 districtCode+categoryCode로 교체
+                  // 지금은 buildingId 자리에 districtCode를 넘겨 동작만 유지
+                  buildingId: districtCode,
                   navigationShell: navigationShell,
                 ),
               );
             },
             branches: [
-              // Branch 0: Step 4-1(게이지) + Step 4-2(LLM 보고서)
+              // Branch 0: 점수 게이지 + LLM 보고서
               StatefulShellBranch(
                 navigatorKey: _reportNavigatorKey,
                 routes: [
                   GoRoute(
                     path: 'report', // ⚠️ 앞에 '/' 없음 — 부모 경로에 이어붙는 상대경로
                     builder: (context, state) {
-                      final buildingId = state.pathParameters['buildingId']!;
-                      return ReportPage(buildingId: buildingId);
+                      final districtCode =
+                          state.pathParameters['districtCode']!;
+                      // TODO(Phase 3): ReportPage 파라미터명 교체
+                      return ReportPage(buildingId: districtCode);
                     },
                   ),
                 ],

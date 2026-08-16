@@ -31,7 +31,7 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
                 context.pop();
               } else {
                 // 스택이 비어있으면(직접 URL 진입·새로고침 등) 안전한 기본 위치로
-                context.go('/step1');
+                context.go('/select');
               }
             },
       ),

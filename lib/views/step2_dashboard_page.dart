@@ -5,12 +5,18 @@ import 'package:go_router/go_router.dart';
 import '../app/theme.dart';
 import '../models/commercial_area.dart';
 import '../providers/area_provider.dart';
+import '../providers/region_provider.dart'; // ⭐ Phase 1 — categoryCode 참조용
 
 /// Step 2: 선택 지역 상권 분석 대시보드
 class Step2DashboardPage extends ConsumerWidget {
-  const Step2DashboardPage({super.key, required this.regionCode});
+  const Step2DashboardPage({
+    super.key,
+    required this.regionCode,
+    required this.categoryCode,
+  });
 
-  final String regionCode; // Step 1에서 넘어몬 행정동 코드 (route parameter)
+  final String regionCode; // 행정동 코드 (route parameter)
+  final String categoryCode; // ⭐ Phase 1 — URL에서 직접 받음, Provider 의존 제거
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -187,7 +193,9 @@ class Step2DashboardPage extends ConsumerWidget {
       child: InkWell(
         onTap: () {
           ref.read(selectedAreaProvider.notifier).state = area;
-          context.push('/step3/${area.regionCode}');
+          // 새로고침·직접 진입해도 항상 유효한 URL 파라미터 사용
+          // (Provider 상태는 새로고침 시 초기화되므로 여기서 읽으면 안 됨)
+          context.push('/score/${area.regionCode}/$categoryCode');
         },
         borderRadius: BorderRadius.circular(SurbiRadius.card),
         splashColor: SurbiColors.accent.withValues(alpha: 0.1),

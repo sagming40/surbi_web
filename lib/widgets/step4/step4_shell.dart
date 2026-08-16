@@ -32,7 +32,7 @@ class Step4Shell extends StatelessWidget {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go('/step1');
+                  context.go('/select');
                 }
               }
             });
@@ -40,7 +40,7 @@ class Step4Shell extends StatelessWidget {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/step1');
+              context.go('/select');
             }
           }
         },

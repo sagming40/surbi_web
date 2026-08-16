@@ -113,7 +113,10 @@ class Step1RegionPage extends ConsumerWidget {
       child: ElevatedButton(
         onPressed: isReady
             ? () {
-                context.push('/step2/${selection.regionCode}');
+                // 새 플로우: 선택 → 지도 → 분석 → 점수
+                context.push(
+                  '/map/${selection.regionCode}/${selection.categoryCode}',
+                );
               }
             : null,
         style: ElevatedButton.styleFrom(

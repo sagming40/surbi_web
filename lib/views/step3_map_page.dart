@@ -8,8 +8,13 @@ import 'package:surbi_web/services/kakao_map_view_registry.dart';
 
 class Step3MapPage extends ConsumerStatefulWidget {
   final String regionCode;
+  final String categoryCode; // ⭐ Phase 1 — /score 이동 시 필요
 
-  const Step3MapPage({super.key, required this.regionCode});
+  const Step3MapPage({
+    super.key,
+    required this.regionCode,
+    required this.categoryCode,
+  });
 
   @override
   ConsumerState<Step3MapPage> createState() => _Step3MapPageState();
@@ -26,8 +31,9 @@ class _Step3MapPageState extends ConsumerState<Step3MapPage> {
     };
 
     onBuildingDetailTap = (building) {
-      closeBuildingOverlay(); // ⭐ Step4로 넘어가기 전에 카드부터 닫음
-      context.push('/step4/${building.buildingId}');
+      closeBuildingOverlay();
+      // 새 플로우: 지도 다음은 점수가 아니라 상권 분석
+      context.push('/analysis/${widget.regionCode}/${widget.categoryCode}');
     };
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,7 +78,8 @@ class _Step3MapPageState extends ConsumerState<Step3MapPage> {
           if (context.canPop()) {
             context.pop();
           } else {
-            context.go('/step2/${widget.regionCode}');
+            // 새 플로우: 지도 이전 화면은 분석이 아니라 선택 화면
+            context.go('/select');
           }
         },
         child: const Padding(
