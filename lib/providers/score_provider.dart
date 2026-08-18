@@ -21,7 +21,8 @@ final scoreResultProvider = Provider<ScoreResult>((ref) {
 });
 
 /// 정부 지원사업 목록 — 임시 데이터 직접 반환 (B안 원칙)
-/// TODO: GET /policies API 연동 후 FutureProvider로 교체 예정 (Task 4-6)
+/// TODO: GET /api/supports?period=current API 연동 후 FutureProvider로 교체 예정 (Task 4-6)
+/// 2026-08-18 — category 필드 제거 확정 (DB팀 3.3 [BE] 1번, 업종·지역 필터 불가)
 final policiesProvider = Provider<List<GovernmentPolicy>>((ref) {
   return const [
     GovernmentPolicy(
@@ -29,7 +30,6 @@ final policiesProvider = Provider<List<GovernmentPolicy>>((ref) {
       title: '소상공인 창업 지원 사업',
       agency: '서울신용보증재단',
       jrsdInsttNm: '중소벤처기업부',
-      category: '외식업',
       summary: '초기 창업자를 위한 저금리 정책자금 및 컨설팅을 지원합니다.',
       startDate: '2026-07-03',
       endDate: '2026-08-17',
