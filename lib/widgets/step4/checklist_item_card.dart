@@ -15,24 +15,46 @@ class ChecklistItemCard extends StatelessWidget {
     required this.onToggle,
   });
 
+  // 2026-08-18 — 카테고리별 색상 매핑
+  // 현장조사는 accent(네이비) 재사용, 나머지 2개는 theme.dart에 신규 추가
+  Color _categoryColor(String category) {
+    switch (category) {
+      case '현장조사':
+        return SurbiColors.accent;
+      case '자금준비':
+        return SurbiColors.checklistFunding;
+      case '법무':
+        return SurbiColors.checklistLegal;
+      default:
+        return SurbiColors.accent;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final categoryColor = _categoryColor(item.category);
+
     return SurbiCard(
-      // ⭐ 카드 전체를 누르면 토글 (체크박스만 누르는 것보다 터치 영역 넓어서 UX 좋음)
+      // 2026-08-18 — 체크 완료 시 카드 배경을 옅은 초록으로 (C안)
+      // 기존 취소선(TextDecoration.lineThrough) 방식은 Flutter Web CanvasKit에서
+      // 공백 위치가 끊겨 보이는 알려진 렌더링 버그가 있어(DEVLOG 미해결 항목),
+      // 취소선 자체를 쓰지 않는 표현으로 교체
+      backgroundColor: item.isChecked
+          ? SurbiColors.success.withValues(alpha: 0.08)
+          : null,
       child: InkWell(
         onTap: onToggle,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // ⭐ 체크박스 자체
+              // 체크박스 — 완료 시 success 색으로 강조 (취소선 대신 이게 "완료됨"을 전달)
               Checkbox(
                 value: item.isChecked,
                 onChanged: (_) => onToggle(),
-                activeColor: SurbiColors.accent,
+                activeColor: SurbiColors.success,
               ),
               const SizedBox(width: 8),
-              // ⭐ 내용 + 카테고리 태그
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,10 +63,10 @@ class ChecklistItemCard extends StatelessWidget {
                       item.content,
                       style: TextStyle(
                         fontSize: 14,
-                        // ⭐ 체크된 항목은 취소선 + 흐린 색으로 "완료됨" 표시
-                        decoration: item.isChecked
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
+                        fontWeight: item.isChecked
+                            ? FontWeight.normal
+                            : FontWeight.w500,
+                        // 취소선 대신 색 대비로만 완료 여부 표시
                         color: item.isChecked ? Colors.grey : Colors.black87,
                       ),
                     ),
@@ -55,20 +77,31 @@ class ChecklistItemCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: SurbiColors.accentTint,
+                        color: categoryColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         item.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: SurbiColors.accent,
+                          fontWeight: FontWeight.w600,
+                          color: categoryColor,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
+              // 완료 시 우측에 체크 아이콘 — 취소선의 대체 신호
+              if (item.isChecked)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: SurbiColors.success,
+                    size: 20,
+                  ),
+                ),
             ],
           ),
         ),

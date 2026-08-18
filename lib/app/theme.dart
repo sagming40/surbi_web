@@ -26,6 +26,11 @@ class SurbiColors {
 
   static const Color shapPositive = Color(0xFF2563EB);
   static const Color shapNegative = Color(0xFFDC2626);
+
+  // ── 체크리스트 카테고리 컬러 (2026-08-18) ──
+  // 현장조사는 accent(네이비) 재사용, 아래 2개만 신규 추가
+  static const Color checklistFunding = Color(0xFFB45309); // 자금준비 — 앰버
+  static const Color checklistLegal = Color(0xFF4338CA); // 법무 — 인디고
 }
 
 class SurbiRadius {

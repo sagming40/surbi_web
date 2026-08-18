@@ -7,29 +7,51 @@ import 'package:surbi_web/models/checklist_item.dart';
 class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
   ChecklistNotifier() : super(_initialItems);
 
-  // B안 원칙: 임시 데이터는 여기(Provider 계층)에만 격리
-  // TODO: Task 4-6에서 실제 API 응답으로 교체 예정
+  // B안 원칙: 데이터는 Provider 계층에 격리
+  // 2026-08-18 확정 — DB팀 확인 결과(3.3 [전체] 6번) 관련 테이블 자체가 없어
+  // API 연동 대상이 아님. 이 6개 항목은 FE 고정값으로 영구 유지.
   static const List<ChecklistItem> _initialItems = [
     ChecklistItem(
-      itemId: 'temp_check_001',
-      content: '현장 방문 후 유동인구 체감 확인하기',
+      itemId: 'check_001',
+      content: '선택한 동네를 직접 방문해 유동인구·경쟁 매장을 눈으로 확인하기',
       category: '현장조사',
       isChecked: false,
       order: 1,
     ),
     ChecklistItem(
-      itemId: 'temp_check_002',
-      content: '정책 지원사업 신청자격 요건 확인하기',
-      category: '자금준비',
+      itemId: 'check_002',
+      content: '같은 업종 인근 매장의 영업시간·가격대 조사하기',
+      category: '현장조사',
       isChecked: false,
       order: 2,
     ),
     ChecklistItem(
-      itemId: 'temp_check_003',
+      itemId: 'check_003',
+      content: '추천된 정부 지원사업의 신청 자격 요건 확인하기',
+      category: '자금준비',
+      isChecked: false,
+      order: 3,
+    ),
+    ChecklistItem(
+      itemId: 'check_004',
+      content: '초기 창업 자금(보증금·인테리어·재고) 예산 계획 세우기',
+      category: '자금준비',
+      isChecked: false,
+      order: 4,
+    ),
+    ChecklistItem(
+      itemId: 'check_005',
       content: '임대차 계약서 특약사항 법무 검토받기',
       category: '법무',
       isChecked: false,
-      order: 3,
+      order: 5,
+    ),
+    ChecklistItem(
+      itemId: 'check_006',
+      content: '사업자등록·영업신고 등 필요 인허가 목록 확인하기',
+      category: '법무',
+      isChecked: false,
+      order: 6,
     ),
   ];
 
