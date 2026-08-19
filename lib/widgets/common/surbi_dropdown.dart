@@ -12,6 +12,7 @@ class SurbiDropdown<T> extends StatefulWidget {
   final String Function(T item) labelBuilder;
   final ValueChanged<T>? onChanged; // null이면 비활성화(회색 처리)
   final double maxMenuHeight;
+  final bool openUpward; // ⬅️ 추가 — true면 버튼 위쪽으로 펼침 (하단 바 전용)
 
   const SurbiDropdown({
     super.key,
@@ -21,6 +22,7 @@ class SurbiDropdown<T> extends StatefulWidget {
     required this.labelBuilder,
     required this.onChanged,
     this.maxMenuHeight = 280,
+    this.openUpward = false, // ⬅️ 추가
   });
 
   @override
@@ -64,7 +66,16 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              offset: const Offset(0, 52), // 버튼 높이만큼 아래로 (버튼 높이에 맞춰 조정)
+              // ⬇️ 추가 — 위로 펼칠 땐 메뉴의 "아래쪽"을 버튼의 "위쪽"에 붙임
+              targetAnchor: widget.openUpward
+                  ? Alignment.topLeft
+                  : Alignment.topLeft,
+              followerAnchor: widget.openUpward
+                  ? Alignment.bottomLeft
+                  : Alignment.topLeft,
+              offset: widget.openUpward
+                  ? const Offset(0, -8)
+                  : const Offset(0, 52), // 버튼 높이만큼 아래로 (버튼 높이에 맞춰 조정)
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(SurbiRadius.card),

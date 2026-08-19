@@ -22,6 +22,11 @@ extension type KakaoMap._(JSObject _) implements JSObject {
   external factory KakaoMap(JSAny container, KakaoMapOptions options);
   external void relayout(); // ⬅️ 추가
   external void setBounds(KakaoLatLngBounds bounds); // ⬅️ 추가 ㅡ 마커 위치로 자동 이동
+  external void panTo(KakaoLatLng latlng); // ⬅️ 추가 — 부드럽게 이동
+  external void setCenter(KakaoLatLng latlng); // ⬅️ 추가 — 즉시 이동
+  external void setLevel(int level); // ⬅️ 추가 — 줌 레벨 지정
+  external int getLevel(); // ⬅️ 추가 — 현재 줌 레벨 읽기
+  external void setMapTypeId(JSAny mapTypeId); // ⬅️ 추가 — 지도/스카이뷰 전환
 }
 
 /// 마커가 찍힐 위치
@@ -88,3 +93,10 @@ extension type KakaoCustomOverlay._(JSObject _) implements JSObject {
 /// (CustomOverlay 안의 버튼 등을 누를 때, 그게 "지도 클릭"으로 오인되는 걸 막음)
 @JS('kakao.maps.event.preventMap')
 external void kakaoPreventMap();
+
+/// kakao.maps.MapTypeId — 일반 지도 / 스카이뷰 구분 상수
+@JS('kakao.maps.MapTypeId.ROADMAP')
+external JSAny get kakaoMapTypeRoadmap;
+
+@JS('kakao.maps.MapTypeId.SKYVIEW')
+external JSAny get kakaoMapTypeSkyview;

@@ -330,3 +330,62 @@ Future<void> addRegionMarkers(List<Region> regions) async {
 
   map.setBounds(bounds);
 }
+
+// ─────────────────────────────────────────────
+// ② 업소 지도 — 행정동 이동 / 지도 컨트롤 (2026-08-19 회의 반영)
+// ─────────────────────────────────────────────
+
+// 지금 선택된 행정동을 표시하는 강조 마커 (항상 1개만 유지)
+KakaoMarker? _selectedRegionMarker;
+
+/// 드롭다운에서 동을 고르면 지도 중심을 그쪽으로 옮기고 강조 마커를 찍음
+Future<void> moveToRegion(Region region, {int level = 4}) async {
+  final map = kakaoMapInstance;
+  if (map == null) return;
+
+  final position = KakaoLatLng(region.lat, region.lng);
+
+  // 이전 강조 마커 제거 (업소 마커는 건드리지 않음)
+  _selectedRegionMarker?.setMap(null);
+
+  // ⚠️ 임시 강조색 — 디자인 확정 시 theme.dart로 이관 예정
+  final marker = KakaoMarker(
+    KakaoMarkerOptions(
+      position: position,
+      image: KakaoMarkerImage(
+        _pinDataUri(size: 42, color: '#F2994A'),
+        KakaoSize(42, 53),
+      ),
+    ),
+  );
+  marker.setMap(map);
+  _selectedRegionMarker = marker;
+
+  map.setLevel(level);
+  map.panTo(position);
+}
+
+/// 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
+void zoomIn() {
+  final map = kakaoMapInstance;
+  if (map == null) return;
+  final next = map.getLevel() - 1;
+  if (next < 1) return;
+  map.setLevel(next);
+}
+
+/// 줌 아웃
+void zoomOut() {
+  final map = kakaoMapInstance;
+  if (map == null) return;
+  final next = map.getLevel() + 1;
+  if (next > 14) return;
+  map.setLevel(next);
+}
+
+/// 일반 지도 ↔ 스카이뷰 전환
+void setMapSkyview(bool isSkyview) {
+  final map = kakaoMapInstance;
+  if (map == null) return;
+  map.setMapTypeId(isSkyview ? kakaoMapTypeSkyview : kakaoMapTypeRoadmap);
+}
