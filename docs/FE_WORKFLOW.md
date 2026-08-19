@@ -2,9 +2,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v4.1 |
+| 버전 | v4.2 |
 | 생성일 | 2026년 6월 18일 |
-| 최종 수정 | 2026년 8월 16일 |
+| 최종 수정 | 2026년 8월 19일 |
 | 담당자 | 사공민규 |
 | 기술 스택 | Flutter Web · Firebase · Riverpod · go_router · fl_chart · 카카오맵 SDK · intl |
 
@@ -24,9 +24,11 @@
 | --- | --- | --- | --- |
 | **1** | **Task 4-2 · API 협의 문서 v2.0 송부** | 🔄 진행 | Notion 게시 + Discord 공유 |
 | **2** | Task 4-2 · 세분화 점수 5종 `scores` 확장 가능 여부 (ML) | ⏸️ 회신 대기 | **Step 4 재설계 여부가 여기서 갈림** |
-| 3 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | 엔드포인트 일정 미회신 |
-| 4 | Task 2-5 · Firestore 연동 | ⏳ 대기 | `users`/`favorites` 테이블 존폐 확인 후 |
-| 5 | `context.push()` URL 미동기화 버그 원인 조사 | ⏳ 대기 | EPIC 5 배포 전 필수 (DEVLOG 미해결 11번) |
+| 3 | 히트맵 착수 전 엔드포인트 확인 질문 (DB) | ⏳ 대기 | geom 적재는 완료(8/17), API 완성 여부 미확인 |
+| 4 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | 엔드포인트 일정 미회신 |
+| 5 | Task 2-5 · Firestore 연동 | ⏳ 대기 | `users`/`favorites` 테이블 존폐 확인 후 |
+| 6 | `context.push()` URL 미동기화 버그 원인 조사 | ⏳ 대기 | EPIC 5 배포 전 필수 (DEVLOG 미해결 7번) |
+| 7 | 데스크탑 Flutter SDK upgrade | ⏳ 대기 | 5개월 격차, 다음 여유 세션에 |
 
 ### 🟢 BE 회신 없이 착수 가능한 작업
 
@@ -34,8 +36,8 @@
 | --- | --- | --- |
 | Step 1 카테고리 버튼 → CS코드 외식업 10종 교체 | DB팀 3_3 [전체] 3번 | ✅ **완료** (Phase 1.5) |
 | 상권분석 화면 지표 표기 정정 (경쟁도 %→개수, 유동인구 축약, 임대료 자치구 명시, 기준분기 표기) | 대조표 🟢 2·3·5·7번 | ✅ **완료** (Phase 4) |
-| 체크리스트 항목 **FE 고정 문구로 확정** | DB팀 3_3 [전체] 6번 | ⏳ 미착수 — `checklist_provider.dart` |
-| 정책 리스트 **필터 파라미터 제거 → 전체 표시** | DB팀 3_3 [BE] 1번 | ⏳ 미착수 — `policy_list_page.dart` |
+| 체크리스트 항목 **FE 고정 문구로 확정** | DB팀 3_3 [전체] 6번 | ✅ **완료** (2026-08-18, 6개 항목 + 카테고리 색상) |
+| 정책 리스트 **category 필드 제거** | DB팀 3_3 [BE] 1번 | ✅ **완료** (2026-08-18, UI는 원래 필터 없었음) |
 
 ---
 
@@ -76,7 +78,7 @@
 | --- | --- | --- | --- |
 | **1** | 환경 구축 & 기반 설계 | 7 / 7 | ✅ 완료 |
 | **2** | 인증 & 사용자 관리 | 1 / 5 | 🔄 진행 중 (Task 2-1 main 병합, PR #9) |
-| **3** | Step 1~4 핵심 화면 개발 | 7 / 7 | ✅ 완료 (단, B1·B2로 **재설계 가능성 있음**) |
+| **3** | Step 1~4 핵심 화면 개발 | 7 / 7 | ✅ 완료 (단, B1로 **재설계 가능성 있음**, B2는 8/16 해소) |
 | **4** | 백엔드 API 연동 | 0 / 6 | 🔄 4-2 협의 중 |
 | **5** | 품질 검증 & 배포 | 0 / 4 | ⏳ 대기 |
 
@@ -126,6 +128,13 @@ CS100005 제과점        CS100010 커피-음료
 - 예외 처리: `expected_sales` **0원 데이터 1,454건 존재**, 최대값 612억(비현실적) → 표시 가드 필요
 - 데이터 커버리지: **행정동 397개만 존재**(전체 427개 중 30개 누락) → 빈 결과 화면 필요
 
+### 히트맵 — `districts.geom`
+
+| 항목 | 상태 |
+| --- | --- |
+| geom 컬럼 적재 | ✅ **완료** (2026-08-17 DB팀 확인) |
+| `/api/map/heatmap` 엔드포인트 | ❓ 미확인 — 컬럼 적재 ≠ API 완성, 확인 질문 필요 |
+
 ### `government_supports` — 정부 지원사업 (필드명 확정, 필터 불가)
 
 | FE 필드 | DB 컬럼 | 비고 |
@@ -172,7 +181,7 @@ CS100005 제과점        CS100010 커피-음료
 > 더 있을 수 있으니, **데스크탑도 `flutter upgrade` 권장.**
 
 **권장 조치**
-- [ ] 두 환경 버전 통일 (`flutter upgrade` 또는 특정 버전 고정)
+- [ ] 두 환경 버전 통일 — ⚠️ 2026-08-17 데스크탑에서 `flutter upgrade` 시도 결과, SDK가 `flutter_windows_3.41.6-stable` 폴더에 압축 배포판 형태로 설치돼 있어 git 기반 upgrade가 "local changes" 오류로 실패함(`flutter doctor -v`는 정상). **새 버전을 별도 폴더에 새로 설치 후 PATH 교체**하는 방식으로 진행 예정
 - [ ] 가능하면 `fvm`(Flutter Version Management) 도입 검토 — 프로젝트별 SDK 버전 고정
 - [ ] 최소한 `pubspec.yaml`에 `environment.flutter` 범위를 명시해 호환 안 되는 SDK로 빌드 시 조기 경고되도록
 
@@ -435,7 +444,7 @@ service cloud.firestore {
 | --- | --- | --- |
 | 1 | ~~카테고리 버튼 CS코드 교체~~ | ✅ 완료 (Phase 1.5) |
 | 1 | 구/동 목록 하드코딩 제거 → 행정동 목록 API | Task 4-3 (API 제공 가능 확인됨) |
-| 1 | 히트맵 실데이터 (geom 기반 색칠) | ⚠️ `districts.geom` 적재 여부 확인 필요 |
+| 1 | 히트맵 실데이터 (geom 기반 색칠) | 🔄 geom 적재 완료(8/17), 엔드포인트 완성 여부 확인 중 |
 | 2(지도) | ~~건물 → 업소 재정의~~ | ✅ 완료 (Phase 3) |
 | 2(지도) | 마커 클러스터링 | Task 4-5 — 실데이터 464개 붙은 후 |
 | 2(지도) | 오버레이 카드 거리 표시 | Task 4-5 |
@@ -443,8 +452,9 @@ service cloud.firestore {
 | 3(분석) | ~~지표 표기 정정(경쟁도·유동인구·임대료·분기)~~ | ✅ 완료 (Phase 4) |
 | 3(분석) | 소비 패턴(시간대/성별/연령) 차트 | Task 4-4 |
 | 4 | 세부 점수·SHAP 패널 존폐 | ⏸️ **B1 블로커** |
-| 4 | 체크리스트 고정 문구 확정 | 🟢 **지금 착수 가능** |
-| 4 | 정책 카드 필터 파라미터 제거 | 🟢 **지금 착수 가능** |
+| 4 | ~~체크리스트 고정 문구 확정~~ | ✅ 완료 (2026-08-18) — 카테고리 색상 구분 포함 |
+| 4 | ~~정책 카드 category 필드 제거~~ | ✅ 완료 (2026-08-18) |
+| 4 | 체크리스트 카테고리 색상 구분 UX 검증 | ✅ 완료 (위와 동일 작업으로 함께 처리됨) |
 | 4 | PDF 다운로드 버튼 | 추후 (Phase 3 항목) |
 | 4 | 보고서·체크리스트 Firestore 저장 | Task 2-5 |
 
@@ -464,7 +474,8 @@ service cloud.firestore {
 ### 🔄 Task 4-2 · 백엔드 API 명세 확정 (With. BE)
 
 > 📎 **명세 전문**: **[docs/API_명세_협의_요청사항.md](API_명세_협의_요청사항.md)** — **v2.1**
-> **현황**: Discord 확인분 반영 + 확정 사항 분리. **P1 7건 · P2 11건** (ML 6 / BE 10 / DB 5)
+> **현황**: P1-6(geom)은 적재 완료 확인(8/17), 엔드포인트 완성 여부 재확인 대기.
+> **P1 7건 중 6건 남음 · P2 11건** (ML 6 / BE 10 / DB 5)
 
 - [x] ~~Step 순서 정본 확정~~ → 8/3 회의 확정, FE 반영 완료
 - [x] ~~Step 3 데이터 근거 재정의~~ → 행정동+업종 단위 확정, FE 반영 완료
@@ -480,7 +491,7 @@ service cloud.firestore {
 | --- | --- | --- | --- |
 | `GET /api/categories` | ❌ | 업종 드롭다운 (CS코드 10종) | 🆕 신규 |
 | `GET /api/districts?gu={구명}` | ❌ | Step 1 구/동 드롭다운 | 🆕 신규 (제공 가능 확인) |
-| `GET /api/map/heatmap?category_code=` | ❌ | Step 1 히트맵 (GeoJSON + score) | 🔄 geom 적재 진행 중 (8/16 확인) |
+| `GET /api/map/heatmap?category_code=` | ❌ | Step 1 히트맵 (GeoJSON + score) | 🔄 geom 적재 완료(8/17), 엔드포인트 완성 여부 확인 필요 |
 | `GET /api/analysis?district_name=&category_code=` | ❓ | Step 2 대시보드 (5종 통합 응답) | 🆕 BFF형 |
 | `GET /api/scores?district_name=&category_code=` | ❓ | Step 4 점수 3종 | 🔄 파라미터 변경 |
 | `GET /api/supports?period=current` | ❌ | Step 4 정부지원 (필터 없음) | 🔄 필터 제거 |
@@ -609,7 +620,7 @@ Future<String> pollReport(String reportId) async {
 
 **저장소 문서 (`docs/`)**
 - [FE_DEVLOG.md](FE_DEVLOG.md) — 개발 일지 (과거 기록 · 트러블슈팅 · 상시 규칙)
-- [API_명세_협의_요청사항.md](API_명세_협의_요청사항.md) — 백엔드 API 협의 요청 목록 (v2.0)
+- [API_명세_협의_요청사항.md](API_명세_협의_요청사항.md) — 백엔드 API 협의 요청 목록 (v2.1)
 - [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md) — 브랜치 전략
 - [DESIGN.md](DESIGN.md) — 디자인 가이드
 
@@ -619,4 +630,4 @@ Future<String> pollReport(String reportId) async {
 
 ---
 
-*FRONT-END WORKFLOW v4.1 · 사공민규 · 최종 수정: 2026.08.16*
+*FRONT-END WORKFLOW v4.2 · 사공민규 · 최종 수정: 2026.08.19*
