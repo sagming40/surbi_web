@@ -243,21 +243,29 @@ String _pinDataUri({required double size, required String color}) {
 // ⬇️ 추가 — Step1 지도 인스턴스 (Step3의 kakaoMapInstance와 별개로 관리)
 KakaoMap? kakaoMapInstanceStep1;
 
+/// 지도가 실제 크기를 잡은 뒤 초기 화면(서울 전역 경계)을 한 번 그렸는지 여부.
+/// 지도를 새로 만들 때마다(화면 재진입) false로 되돌린다.
+bool _step1OverviewDrawn = false;
+
 /// Step 1 히트맵 자리에 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
 /// main() 앱 시작할 때 registerKakaoMapView()와 함께 딱 한 번만 호출
 void registerKakaoMapViewStep1() {
   ui_web.platformViewRegistry.registerViewFactory('kakao-map-view-step1', (
     int viewId,
   ) {
+    // 화면에 다시 들어오면 지도가 새로 만들어지므로 초기 화면도 다시 그리도록 되돌림
+    _step1OverviewDrawn = false;
+
     final div = web.HTMLDivElement()
       ..id = 'kakao-map-step1-$viewId'
       ..style.width = '100%'
       ..style.height = '100%';
 
-    // 서울시청 좌표를 기본 중심점으로 (아직 구를 선택하기 전 초기 화면)
+    // 생성 시점의 중심·레벨은 임시값이다. 이 시점엔 div가 아직 화면에 붙기 전이라
+    // 크기가 0이고, 진짜 초기 화면은 아래 ResizeObserver에서 잡는다.
     final options = KakaoMapOptions(
-      center: KakaoLatLng(37.5665, 126.9780),
-      level: 8, // 서울 전체가 보이도록 레벨을 좀 더 낯춤 (숫자가 클수록 축소)
+      center: KakaoLatLng(37.5665, 126.9780), // 서울시청
+      level: 8,
     );
     final map = KakaoMap(div, options);
     kakaoMapInstanceStep1 = map;
@@ -265,6 +273,15 @@ void registerKakaoMapViewStep1() {
     final observer = web.ResizeObserver(
       ((JSArray<JSAny?> entries, web.ResizeObserver obs) {
         map.relayout();
+
+        // 크기가 실제로 잡힌 첫 순간에 딱 한 번 초기 화면을 그린다.
+        // 크기가 0인 상태에서 setBounds하면 엉뚱한 곳을 비추고,
+        // 매번 다시 그리면 창 크기를 바꿀 때마다 보던 위치가 튕겨나간다.
+        if (!_step1OverviewDrawn && div.clientWidth > 0 && div.clientHeight > 0) {
+          _step1OverviewDrawn = true;
+          // 비동기지만 기다리지 않는다 — 관찰자 콜백을 붙잡고 있을 이유가 없다
+          drawSeoulOverviewStep1();
+        }
       }).toJS,
     );
     observer.observe(div);
@@ -428,11 +445,25 @@ Map<String, List<KakaoLatLng>>? _boundaryCache;
 KakaoPolygon? _regionPolygon; // 업소 지도(kakaoMapInstance)용
 KakaoPolygon? _regionPolygonStep1; // Step 1 지도(kakaoMapInstanceStep1)용
 
-/// assets의 GeoJSON을 읽어 캐시에 올림. 이미 올라와 있으면 즉시 반환
-Future<void> _ensureBoundaryLoaded() async {
-  if (_boundaryCache != null) return; // ⬅️ 두 번째 호출부터는 파일을 다시 읽지 않음
+/// 자치구명 → 경계 좌표 배열 (초기 화면용). 동 경계와 같은 방식으로 캐시한다.
+Map<String, List<KakaoLatLng>>? _guBoundaryCache;
 
-  final raw = await rootBundle.loadString('assets/geo/seoul_dong.json');
+/// GeoJSON 한 건을 읽어 "속성키 → 좌표 배열" 형태로 바꿔준다.
+///
+/// 동 경계·구 경계 두 파일이 구조가 같아 한 함수로 처리한다.
+/// 반환값은 **파일을 실제로 읽는 데 걸린 ms** — 두 번째 호출부터는 0이다.
+/// (성능 로그에서 "한 번 내는 비용"과 "매번 내는 비용"을 갈라 보기 위함)
+Future<int> _loadBoundaryFile(
+  String assetPath,
+  String keyProperty,
+  Map<String, List<KakaoLatLng>>? Function() read,
+  void Function(Map<String, List<KakaoLatLng>>) write,
+) async {
+  if (read() != null) return 0; // ⬅️ 두 번째 호출부터는 파일을 다시 읽지 않음
+
+  final watch = Stopwatch()..start();
+
+  final raw = await rootBundle.loadString(assetPath);
   final json = jsonDecode(raw) as Map<String, dynamic>;
   final features = json['features'] as List<dynamic>;
 
@@ -442,12 +473,13 @@ Future<void> _ensureBoundaryLoaded() async {
     final properties = feature['properties'] as Map<String, dynamic>;
     final geometry = feature['geometry'] as Map<String, dynamic>;
 
-    final code = properties['code'] as String;
-    // 서울 425개 행정동은 전부 단일 파트·구멍 없음이 확인됨 → 외곽 링 하나만 읽으면 됨
+    final key = properties[keyProperty] as String;
+    // 두 파일 모두 단일 파트·구멍 없음이 확인됨 → 외곽 링 하나만 읽으면 됨
+    // (구 경계는 동 경계를 합쳐 만들었고, 25개 전부 단일 폴리곤으로 나왔다)
     final ring = (geometry['coordinates'] as List<dynamic>)[0] as List<dynamic>;
 
     // ⚠️ GeoJSON은 [경도, 위도] 순서 / 카카오는 (위도, 경도) 순서 → 반드시 뒤집을 것
-    cache[code] = ring.map((c) {
+    cache[key] = ring.map((c) {
       final point = c as List<dynamic>;
       return KakaoLatLng(
         (point[1] as num).toDouble(), // 위도
@@ -456,8 +488,26 @@ Future<void> _ensureBoundaryLoaded() async {
     }).toList();
   }
 
-  _boundaryCache = cache;
+  write(cache);
+  watch.stop();
+  return watch.elapsedMilliseconds;
 }
+
+/// 행정동 경계(425개)를 캐시에 올린다. 이미 올라와 있으면 즉시 0 반환
+Future<int> _ensureBoundaryLoaded() => _loadBoundaryFile(
+  'assets/geo/seoul_dong.json',
+  'code',
+  () => _boundaryCache,
+  (c) => _boundaryCache = c,
+);
+
+/// 자치구 경계(25개)를 캐시에 올린다. 이미 올라와 있으면 즉시 0 반환
+Future<int> _ensureGuBoundaryLoaded() => _loadBoundaryFile(
+  'assets/geo/seoul_gu.json',
+  'name',
+  () => _guBoundaryCache,
+  (c) => _guBoundaryCache = c,
+);
 
 /// 경계 폴리곤을 실제로 그리는 핵심 로직 (Step1·업소 지도 공용)
 ///
@@ -599,38 +649,107 @@ void setMapInteractiveStep1(bool enabled) {
 }
 
 // ─────────────────────────────────────────────
-// ④ 구 전체 경계 = 히트맵 밑그림 (2026-08-20 추가)
+// ④ 행정동 경계 밑그림 = 히트맵의 골격 (2026-08-20 추가)
 //
-// ③이 "동 하나"를 주황으로 칠하는 것이라면, ④는 "구에 속한 동 전부"를
-// 연회색으로 한꺼번에 깔아 히트맵의 밑바탕을 만든다.
-// 지금은 전부 같은 회색이지만, 이 자리에 점수별 색을 넣으면 그대로 히트맵이 된다.
+// ③이 "동 하나"를 주황으로 강조하는 것이라면, ④는 "여러 동을 한꺼번에" 깔아
+// 히트맵의 밑바탕을 만든다. 무엇을 깔지는 두 가지다.
+//   · 초기 화면 — 서울 전역 425개 (drawSeoulOverviewStep1)
+//   · 구 선택 후 — 그 구의 동만 (drawGuBoundaries)
+// 그리는 방식은 완전히 같고 대상만 다르므로 _paintBoundaries 하나로 합쳐 두었다.
+//
+// 지금은 전부 같은 네이비지만, 이 자리에 점수별 색을 넣으면 그대로 히트맵이 된다.
 // (Task 4-3 — scores 연동 시 fillColor만 점수 기반 함수로 교체 예정)
 //
-// ⚠️ scores는 행정동 397개만 존재(전체 대비 약 30개 누락) → 색칠 못 하는 동의
-//    표시 규칙(회색 유지 / 빗금 등)을 색칠 단계 전에 정해야 함
+// ⚠️ scores 커버리지는 업종마다 다르다 — 한식 392개 / 양식 182개(전체 425 대비 43%).
+//    "점수 없는 동 30개"가 아니라 최대 243개다. 색칠 못 하는 동의 표시 규칙
+//    (네이비 유지 / 빗금 / 제외)을 색칠 단계 전에 정해야 함. (2026-08-20 CSV 실측)
 // ─────────────────────────────────────────────
 
-/// 지금 Step 1 지도에 깔려 있는 "구 전체 동 경계" 폴리곤들.
+/// 지금 Step 1 지도에 깔려 있는 경계 폴리곤들 (서울 전역 또는 선택 구).
 /// 동 하나짜리 주황 폴리곤(_regionPolygonStep1)과는 별개로 관리한다 —
 /// 구를 바꿀 때 통째로 지워야 하고, 동을 바꿀 때는 남아 있어야 하기 때문.
 List<KakaoPolygon> _guPolygonsStep1 = [];
 
-/// [Step 1] 구에 속한 모든 행정동 경계를 연회색으로 렌더 (히트맵 밑그림)
+/// [Step 1] 구에 속한 모든 행정동 경계를 렌더 (히트맵 밑그림)
 ///
 /// 폴리곤 개수·좌표 개수·소요 시간을 debugPrint로 출력한다.
 /// 서울 전역(425개·약 4,400좌표)을 상시 렌더할 수 있는지 판단하기 위한 계측이며,
 /// 판단이 끝나면 로그는 제거 예정.
 Future<void> drawGuBoundaries(List<Region> regions) async {
-  final map = kakaoMapInstanceStep1;
-  if (map == null) return;
+  if (regions.isEmpty) {
+    _clearGuPolygons(); // 구 선택 해제 등
+    return;
+  }
+  final loadMs = await _ensureBoundaryLoaded();
 
-  // 이전 구의 폴리곤을 전부 제거 — 이걸 빼먹으면 구를 바꿀수록 경계가 쌓인다
+  final paths = <List<KakaoLatLng>>[];
+  var missing = 0; // 경계 데이터가 없는 동 (GeoJSON 425 vs Region 목록 불일치 감지용)
+  for (final region in regions) {
+    final path = _boundaryCache![region.regionCode];
+    if (path == null) {
+      missing++;
+      continue;
+    }
+    paths.add(path);
+  }
+
+  await _paintBoundaries(
+    paths,
+    label: regions.first.guName,
+    missingCount: missing,
+    loadMs: loadMs,
+  );
+}
+
+/// [Step 1] 서울 자치구 25개 경계를 깔아 초기 화면을 만든다 (2026-08-20 추가)
+///
+/// 구를 고르기 전에는 폴리곤이 하나도 없어 화면이 맨 카카오맵이었다.
+/// "여기가 무엇을 하는 화면인지" 신호가 없어 지도가 장식처럼 보였다.
+///
+/// ⚠️ 처음에는 행정동 425개를 그대로 깔았으나 서울 전체 축척에서 너무 촘촘했고,
+///    드래그·줌이 무거워졌다. 생성은 19~21ms로 빨랐지만 폴리곤은 만들고 끝이 아니라
+///    **매 프레임 다시 그려지므로**, 생성 비용이 싸다고 유지 비용까지 싼 건 아니다.
+///    → 자치구 25개(1,022좌표)로 교체. 좌표 4.3배·폴리곤 17배 가벼워졌다.
+///
+/// 축척에 따라 집계 단위를 바꾸는 건 통계 지도의 정석이다 —
+/// 서울 전체를 볼 땐 구 단위, 구를 고르면 동 단위로 내려간다.
+///
+/// 점수 색칠(Task 4-3) 시에도 같은 원칙을 이어간다:
+/// 초기 화면은 구 평균 점수, 구를 고르면 동별 점수.
+Future<void> drawSeoulOverviewStep1() async {
+  final loadMs = await _ensureGuBoundaryLoaded();
+  await _paintBoundaries(
+    _guBoundaryCache!.values.toList(),
+    label: '서울 25개 구',
+    loadMs: loadMs,
+  );
+}
+
+/// 깔려 있던 경계 폴리곤을 전부 제거 — 안 지우면 선택을 바꿀수록 경계가 쌓인다
+void _clearGuPolygons() {
   for (final polygon in _guPolygonsStep1) {
     polygon.setMap(null);
   }
   _guPolygonsStep1 = [];
+}
 
-  if (regions.isEmpty) return; // 구 선택 해제 등
+/// 경계 좌표 목록을 받아 폴리곤을 한꺼번에 그린다 (자치구·행정동 공용)
+///
+/// 좌표 배열만 받고 **어느 캐시에서 왔는지는 모른다.** 그리는 방식이 두 경우
+/// 완전히 같고 "무엇을 그리느냐"만 다르기 때문이다. 캐시를 직접 참조하게 두면
+/// 새 단위(예: 시·도)가 생길 때마다 이 함수를 고쳐야 한다.
+///
+/// [label]·[missingCount]·[loadMs]는 성능 로그 전용이다.
+Future<void> _paintBoundaries(
+  List<List<KakaoLatLng>> paths, {
+  required String label,
+  int missingCount = 0,
+  int loadMs = 0,
+}) async {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+
+  _clearGuPolygons();
 
   // 지도 컨테이너가 실제 크기를 잡을 시간을 벌어줌.
   // 이걸 빼면 첫 진입 때 setBounds가 0×0 크기 기준으로 계산돼 화면이 엉뚱한 데를 비춘다.
@@ -638,26 +757,15 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
   await Future.delayed(const Duration(milliseconds: 300));
   map.relayout();
 
-  // ⏱️ 파일 읽기·파싱(146KB)은 앱 전체에서 딱 1회뿐 → 매번 치르는 렌더 비용과 분리해 측정
-  final loadWatch = Stopwatch()..start();
-  await _ensureBoundaryLoaded();
-  loadWatch.stop();
-
-  // ⏱️ 여기서부터가 "구를 바꿀 때마다 매번 치르는 비용"
+  // ⏱️ 파일 읽기·파싱은 파일당 1회뿐이라 호출부에서 따로 재 [loadMs]로 넘겨받는다.
+  //    여기서부터가 "선택을 바꿀 때마다 매번 치르는 비용"
   final renderWatch = Stopwatch()..start();
 
   final bounds = KakaoLatLngBounds();
   var pointCount = 0; // 실제로 그린 좌표 총개수 — 성능의 진짜 원인은 폴리곤 수가 아니라 좌표 수
-  var missingCount = 0; // 경계 데이터가 없는 동 (GeoJSON 425 vs Region 목록 불일치 감지용)
 
-  for (final region in regions) {
-    final path = _boundaryCache![region.regionCode];
-    if (path == null) {
-      missingCount++;
-      continue;
-    }
-
-    // 코로플레스(통계 지도) 방식 — 면이 데이터를 담고, 흰 선은 칸만 나눈다.
+  for (final path in paths) {
+    // 코로플레스(통계 지도) 방식 — 면이 데이터를 담고, 선은 칸만 나눈다.
     // Task 4-3에서 fillColor를 점수 기반으로 바꾸면 그대로 히트맵이 되고,
     // 점수가 없는 동(scores 397개 vs 경계 425개)은 이 네이비를 그대로 유지한다.
     //
@@ -675,10 +783,13 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
       KakaoPolygonOptions(
         path: path.toJS,
         strokeWeight: 1.5,
-        // 흰 선은 '선'이 아니라 타일 사이의 '틈'으로 기능한다 — 통계 지도의 표준 기법.
-        // 따라서 나눌 면이 있어야 의미가 있고, 면이 옅으면 밝은 지도 위의 흰 줄로만
-        // 남는다. 한때 면을 0.08까지 낮췄다가 이 조합이 성립하지 않아 되돌렸다.
-        strokeColor: '#FFFFFF',
+        // 구분선 색 변천 (2026-08-20):
+        //   ① #8A94A6 1px  — 카카오맵 자체 경계선과 계열이 같아 묻힘
+        //   ② #FFFFFF 1.5px — 타일 사이의 '틈'으로 잘 읽혔으나 지도 위 흰 도로와 헷갈림
+        //   ③ #9AA5B4 1.5px — 지금. 네이비 채움을 밝게 푼 계열이라 면과 톤이 맞고,
+        //      ①보다 밝아 카카오맵 경계선과도 구분된다.
+        // 면(네이비 0.16)이 칸을 채우고 있으므로 선은 나누는 역할만 하면 된다.
+        strokeColor: '#9AA5B4',
         strokeOpacity: 0.9,
         fillColor: '#1E3A5F',
         fillOpacity: 0.16,
@@ -693,17 +804,17 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
     }
   }
 
-  // 구 전체가 화면에 들어오도록 맞춤 (구마다 면적이 달라 고정 줌보다 정확)
+  // 그린 영역 전체가 화면에 들어오도록 맞춤 (면적이 제각각이라 고정 줌보다 정확)
   if (_guPolygonsStep1.isNotEmpty) map.setBounds(bounds);
 
   renderWatch.stop();
 
   debugPrint(
-    '[히트맵 성능] ${regions.first.guName} · '
+    '[히트맵 성능] $label · '
     '폴리곤 ${_guPolygonsStep1.length}개 · '
     '좌표 $pointCount개 · '
     '렌더 ${renderWatch.elapsedMilliseconds}ms '
-    '(GeoJSON 로드 ${loadWatch.elapsedMilliseconds}ms)'
+    '(GeoJSON 로드 ${loadMs}ms)'
     '${missingCount > 0 ? " · ⚠️ 경계없음 $missingCount개" : ""}',
   );
 }
