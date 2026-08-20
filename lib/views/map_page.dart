@@ -60,7 +60,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await addBusinessMarkers(ref.read(businessesProvider));
       if (_selectedRegion != null) {
-        await moveToRegion(_selectedRegion!);
+        await _focusRegion(_selectedRegion!);
       }
     });
   }
@@ -70,6 +70,25 @@ class _MapPageState extends ConsumerState<MapPage> {
     onBusinessMarkerTap = null;
     onBusinessDetailTap = null;
     super.dispose();
+  }
+
+  /// 선택된 행정동으로 화면을 맞춤 (2026-08-20 경계 폴리곤 추가)
+  ///
+  /// ① 경계 폴리곤을 먼저 그려본다 → 성공하면 setBounds가 카메라까지 맞춰줌
+  /// ② 실패(경계 데이터 없음)하면 기존 방식(setLevel + panTo)으로 폴백
+  /// 두 방식이 동시에 카메라를 건드리면 화면이 두 번 덜컹거리므로 moveCamera로 분리
+  Future<void> _focusRegion(Region region) async {
+    final drawn = await drawRegionBoundary(region);
+    await moveToRegion(region, moveCamera: !drawn);
+  }
+
+  /// 드롭다운 메뉴가 열려 있는 동안 지도의 드래그·휠을 잠금 (2026-08-20 추가)
+  ///
+  /// 메뉴는 Flutter 오버레이라 지도 위에 그려지지만, 휠·드래그 이벤트는
+  /// 아래쪽 지도 DOM에도 함께 전달돼 목록을 스크롤하면 지도가 같이 움직였다.
+  /// 메뉴가 닫히는 순간 바로 원상복구되므로 평소 지도 조작에는 영향이 없다.
+  void _lockMapWhileMenuOpen(bool isMenuOpen) {
+    setMapInteractive(!isMenuOpen);
   }
 
   String _findCategoryName(List<Map<String, String>> categories, String code) {
@@ -244,6 +263,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                   items: guNameList,
                   labelBuilder: (gu) => gu,
                   openUpward: true,
+                  onMenuVisibilityChanged: _lockMapWhileMenuOpen, // ⬅️ 추가
                   onChanged: (guName) {
                     setState(() {
                       _selectedGu = guName;
@@ -260,12 +280,13 @@ class _MapPageState extends ConsumerState<MapPage> {
                   items: regionsInGu,
                   labelBuilder: (region) => region.regionName,
                   openUpward: true,
+                  onMenuVisibilityChanged: _lockMapWhileMenuOpen, // ⬅️ 추가
                   onChanged: _selectedGu == null
                       ? null
                       : (region) {
                           setState(() => _selectedRegion = region);
                           closeBusinessOverlay();
-                          moveToRegion(region); // 지도 이동 + 강조 마커
+                          _focusRegion(region); // 경계 폴리곤 + 지도 이동 + 강조 마커
                         },
                 ),
               ),

@@ -3,6 +3,8 @@
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'dart:js_interop'; // 추가!
+import 'dart:convert'; // ⭐ 추가 — JSON 문자열 → Dart 객체 변환
+import 'package:flutter/services.dart'; // ⭐ 추가 — rootBundle (assets 읽기)
 import 'kakao_map_interop.dart'; // 추가!
 import 'package:surbi_web/models/business.dart';
 import 'package:surbi_web/models/region.dart'; // ⭐ 추가
@@ -339,7 +341,14 @@ Future<void> addRegionMarkers(List<Region> regions) async {
 KakaoMarker? _selectedRegionMarker;
 
 /// 드롭다운에서 동을 고르면 지도 중심을 그쪽으로 옮기고 강조 마커를 찍음
-Future<void> moveToRegion(Region region, {int level = 4}) async {
+///
+/// [moveCamera] false면 마커만 찍고 카메라(중심·줌)는 건드리지 않는다.
+/// 경계 폴리곤이 setBounds로 이미 화면을 맞춘 경우 카메라가 두 번 움직이는 걸 막기 위함.
+Future<void> moveToRegion(
+  Region region, {
+  int level = 4,
+  bool moveCamera = true, // ⭐ 2026-08-20 추가
+}) async {
   final map = kakaoMapInstance;
   if (map == null) return;
 
@@ -361,8 +370,11 @@ Future<void> moveToRegion(Region region, {int level = 4}) async {
   marker.setMap(map);
   _selectedRegionMarker = marker;
 
-  map.setLevel(level);
-  map.panTo(position);
+  // ⭐ 폴리곤이 이미 화면을 맞췄으면(moveCamera=false) 카메라는 손대지 않음
+  if (moveCamera) {
+    map.setLevel(level);
+    map.panTo(position);
+  }
 }
 
 /// 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
@@ -388,4 +400,105 @@ void setMapSkyview(bool isSkyview) {
   final map = kakaoMapInstance;
   if (map == null) return;
   map.setMapTypeId(isSkyview ? kakaoMapTypeSkyview : kakaoMapTypeRoadmap);
+}
+
+// ─────────────────────────────────────────────
+// ③ 행정동 경계 폴리곤 (2026-08-20 추가)
+//
+// 데이터: assets/geo/seoul_dong.json — 행정안전부 고시 행정동 경계(서울 425개)
+//        properties.code = 행정동코드 8자리 (팀 DB districts.district_code와 동일 체계)
+// ⚠️ BE의 districts.geom 적재(P1-6) 완료 시 이 asset 대신 API 응답으로 교체 예정
+// ─────────────────────────────────────────────
+
+/// 행정동코드 → 경계 좌표 배열.
+/// 앱 실행 중 딱 한 번만 파일을 읽어 캐시에 올리고 계속 재사용(메모이제이션)
+Map<String, List<KakaoLatLng>>? _boundaryCache;
+
+/// 지금 지도에 그려져 있는 경계 폴리곤 (항상 1개만 유지)
+KakaoPolygon? _regionPolygon;
+
+/// assets의 GeoJSON을 읽어 캐시에 올림. 이미 올라와 있으면 즉시 반환
+Future<void> _ensureBoundaryLoaded() async {
+  if (_boundaryCache != null) return; // ⬅️ 두 번째 호출부터는 파일을 다시 읽지 않음
+
+  final raw = await rootBundle.loadString('assets/geo/seoul_dong.json');
+  final json = jsonDecode(raw) as Map<String, dynamic>;
+  final features = json['features'] as List<dynamic>;
+
+  final cache = <String, List<KakaoLatLng>>{};
+  for (final f in features) {
+    final feature = f as Map<String, dynamic>;
+    final properties = feature['properties'] as Map<String, dynamic>;
+    final geometry = feature['geometry'] as Map<String, dynamic>;
+
+    final code = properties['code'] as String;
+    // 서울 425개 행정동은 전부 단일 파트·구멍 없음이 확인됨 → 외곽 링 하나만 읽으면 됨
+    final ring = (geometry['coordinates'] as List<dynamic>)[0] as List<dynamic>;
+
+    // ⚠️ GeoJSON은 [경도, 위도] 순서 / 카카오는 (위도, 경도) 순서 → 반드시 뒤집을 것
+    cache[code] = ring.map((c) {
+      final point = c as List<dynamic>;
+      return KakaoLatLng(
+        (point[1] as num).toDouble(), // 위도
+        (point[0] as num).toDouble(), // 경도
+      );
+    }).toList();
+  }
+
+  _boundaryCache = cache;
+}
+
+/// 선택된 행정동의 경계를 그리고 화면을 그 영역에 맞춤
+///
+/// 반환값 true  = 폴리곤을 그렸음 (카메라도 setBounds로 맞춰짐)
+/// 반환값 false = 경계 데이터가 없어 못 그림 → 호출한 쪽이 기존 방식으로 폴백해야 함
+Future<bool> drawRegionBoundary(Region region) async {
+  final map = kakaoMapInstance;
+  if (map == null) return false;
+
+  await _ensureBoundaryLoaded();
+
+  // 이전 폴리곤 제거 (업소 마커·강조 핀은 건드리지 않음)
+  _regionPolygon?.setMap(null);
+  _regionPolygon = null;
+
+  final path = _boundaryCache![region.regionCode];
+  if (path == null) return false; // 경계 정보 없는 동 → 조용히 폴백
+
+  // ⚠️ 임시 강조색 — 디자인 확정 시 theme.dart로 이관 예정
+  final polygon = KakaoPolygon(
+    KakaoPolygonOptions(
+      path: path.toJS,
+      strokeWeight: 3,
+      strokeColor: '#F2994A',
+      strokeOpacity: 0.9,
+      fillColor: '#F2994A',
+      fillOpacity: 0.15,
+    ),
+  );
+  polygon.setMap(map);
+  _regionPolygon = polygon;
+
+  // 경계 좌표 전부를 담는 사각 영역을 만들어 화면을 딱 맞춤
+  // (동마다 면적이 달라서 고정 줌 레벨보다 정확함)
+  final bounds = KakaoLatLngBounds();
+  for (final point in path) {
+    bounds.extend(point);
+  }
+  map.setBounds(bounds);
+
+  return true;
+}
+
+/// 지도의 드래그·휠 확대축소를 한꺼번에 켜고 끔 (2026-08-20 추가)
+///
+/// 배경: 드롭다운 메뉴(Flutter 오버레이)는 지도(Platform View) 위에 그려지지만,
+/// 휠·드래그 이벤트는 아래쪽 지도 DOM에도 함께 전달돼 지도가 같이 움직였다.
+/// Task 3-3·7/20에서 겪은 "두 렌더링 세계가 서로를 모른다" 문제의 이벤트 버전.
+/// 이벤트 흐름을 역추적하는 대신 카카오맵이 제공하는 전용 함수로 정면 차단한다.
+void setMapInteractive(bool enabled) {
+  final map = kakaoMapInstance;
+  if (map == null) return;
+  map.setDraggable(enabled);
+  map.setZoomable(enabled);
 }

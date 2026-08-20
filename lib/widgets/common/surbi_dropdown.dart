@@ -14,6 +14,12 @@ class SurbiDropdown<T> extends StatefulWidget {
   final double maxMenuHeight;
   final bool openUpward; // ⬅️ 추가 — true면 버튼 위쪽으로 펼침 (하단 바 전용)
 
+  /// 메뉴가 열리면 true, 닫히면 false로 호출된다. (2026-08-20 추가)
+  ///
+  /// 이 위젯은 "메뉴가 열렸다"는 사실만 알려줄 뿐, 바깥에서 뭘 하는지는 모른다.
+  /// 지도 화면에서는 이 신호를 받아 지도의 드래그·휠을 잠그는 데 사용한다.
+  final ValueChanged<bool>? onMenuVisibilityChanged;
+
   const SurbiDropdown({
     super.key,
     required this.value,
@@ -23,6 +29,7 @@ class SurbiDropdown<T> extends StatefulWidget {
     required this.onChanged,
     this.maxMenuHeight = 280,
     this.openUpward = false, // ⬅️ 추가
+    this.onMenuVisibilityChanged, // ⬅️ 추가
   });
 
   @override
@@ -111,18 +118,28 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
 
     overlay.insert(_overlayEntry!);
     setState(() => _isOpen = true);
+    widget.onMenuVisibilityChanged?.call(true); // ⬅️ 추가 — "메뉴 열렸음" 알림
   }
 
   void _closeMenu() {
-    _overlayEntry?.remove();
+    if (_overlayEntry == null) return; // ⬅️ 추가 — 이미 닫혀 있으면 중복 알림 방지
+
+    _overlayEntry!.remove();
     _overlayEntry = null;
     if (mounted) setState(() => _isOpen = false);
+    widget.onMenuVisibilityChanged?.call(false); // ⬅️ 추가 — "메뉴 닫혔음" 알림
   }
 
   @override
   void dispose() {
     // 화면이 사라질 때 오버레이가 남아있으면 메모리 누수 + 크래시 위험 → 반드시 정리
-    _overlayEntry?.remove();
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+      // ⬅️ 추가 — 메뉴가 열린 채로 화면을 떠나도 바깥의 잠금이 풀리도록 알림
+      // (dispose 중이라 setState는 호출하지 않음)
+      widget.onMenuVisibilityChanged?.call(false);
+    }
     super.dispose();
   }
 

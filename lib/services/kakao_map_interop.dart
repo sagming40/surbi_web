@@ -27,6 +27,8 @@ extension type KakaoMap._(JSObject _) implements JSObject {
   external void setLevel(int level); // ⬅️ 추가 — 줌 레벨 지정
   external int getLevel(); // ⬅️ 추가 — 현재 줌 레벨 읽기
   external void setMapTypeId(JSAny mapTypeId); // ⬅️ 추가 — 지도/스카이뷰 전환
+  external void setDraggable(bool draggable); // ⬅️ 추가 — 드래그 이동 허용/차단
+  external void setZoomable(bool zoomable); // ⬅️ 추가 — 휠 확대/축소 허용/차단
 }
 
 /// 마커가 찍힐 위치
@@ -100,3 +102,23 @@ external JSAny get kakaoMapTypeRoadmap;
 
 @JS('kakao.maps.MapTypeId.SKYVIEW')
 external JSAny get kakaoMapTypeSkyview;
+
+/// kakao.maps.Polygon 생성 시 넘겨줄 옵션
+/// path = 경계를 이루는 좌표들을 순서대로 이어놓은 배열
+extension type KakaoPolygonOptions._(JSObject _) implements JSObject {
+  external factory KakaoPolygonOptions({
+    required JSArray<KakaoLatLng> path, // 경계 좌표 배열
+    required num strokeWeight, // 테두리 두께(px)
+    required String strokeColor, // 테두리 색
+    required num strokeOpacity, // 테두리 투명도 0~1
+    required String fillColor, // 내부 채움 색
+    required num fillOpacity, // 내부 투명도 0~1
+  });
+}
+
+/// kakao.maps.Polygon — 지도 위에 그려지는 다각형 (행정동 경계용)
+@JS('kakao.maps.Polygon')
+extension type KakaoPolygon._(JSObject _) implements JSObject {
+  external factory KakaoPolygon(KakaoPolygonOptions options);
+  external void setMap(JSAny? map); // 지도 넘기면 표시, null 넘기면 제거
+}
