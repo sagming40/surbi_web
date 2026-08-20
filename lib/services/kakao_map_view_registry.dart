@@ -407,7 +407,8 @@ void setMapSkyview(bool isSkyview) {
 //
 // 데이터: assets/geo/seoul_dong.json — 행정안전부 고시 행정동 경계(서울 425개)
 //        properties.code = 행정동코드 8자리 (팀 DB districts.district_code와 동일 체계)
-// ⚠️ BE의 districts.geom 적재(P1-6) 완료 시 이 asset 대신 API 응답으로 교체 예정
+// ⚠️ districts.geom은 2026-08-17 적재 완료 확인됨.
+//    경계를 제공하는 엔드포인트(/api/map/heatmap 등) 완성 시 이 asset 대신 API 응답으로 교체 예정
 // ─────────────────────────────────────────────
 
 /// 행정동코드 → 경계 좌표 배열.

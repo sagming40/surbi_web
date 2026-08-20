@@ -2,9 +2,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v4.2 |
+| 버전 | v4.3 |
 | 생성일 | 2026년 6월 18일 |
-| 최종 수정 | 2026년 8월 19일 |
+| 최종 수정 | 2026년 8월 20일 |
 | 담당자 | 사공민규 |
 | 기술 스택 | Flutter Web · Firebase · Riverpod · go_router · fl_chart · 카카오맵 SDK · intl |
 
@@ -24,7 +24,7 @@
 | --- | --- | --- | --- |
 | **1** | **Task 4-2 · API 협의 문서 v2.0 송부** | 🔄 진행 | Notion 게시 + Discord 공유 |
 | **2** | Task 4-2 · 세분화 점수 5종 `scores` 확장 가능 여부 (ML) | ⏸️ 회신 대기 | **Step 4 재설계 여부가 여기서 갈림** |
-| 3 | 히트맵 착수 전 엔드포인트 확인 질문 (DB) | ⏳ 대기 | geom 적재는 완료(8/17), API 완성 여부 미확인 |
+| 3 | Step 1 히트맵 — 구현 방식 결정 | ⏳ 대기 | geom 적재 완료(8/17) · **8/20 FE 자체 경계 GeoJSON 확보로 엔드포인트 없이도 착수 가능.** API 대기 vs FE asset 선행 중 택1 |
 | 4 | Task 2-2 · 카카오·네이버 로그인 UI | ⏸️ BE 의존 | 엔드포인트 일정 미회신 |
 | 5 | Task 2-5 · Firestore 연동 | ⏳ 대기 | `users`/`favorites` 테이블 존폐 확인 후 |
 | 6 | `context.push()` URL 미동기화 버그 원인 조사 | ⏳ 대기 | EPIC 5 배포 전 필수 (DEVLOG 미해결 7번) |
@@ -38,6 +38,8 @@
 | 상권분석 화면 지표 표기 정정 (경쟁도 %→개수, 유동인구 축약, 임대료 자치구 명시, 기준분기 표기) | 대조표 🟢 2·3·5·7번 | ✅ **완료** (Phase 4) |
 | 체크리스트 항목 **FE 고정 문구로 확정** | DB팀 3_3 [전체] 6번 | ✅ **완료** (2026-08-18, 6개 항목 + 카테고리 색상) |
 | 정책 리스트 **category 필드 제거** | DB팀 3_3 [BE] 1번 | ✅ **완료** (2026-08-18, UI는 원래 필터 없었음) |
+| 업소 지도 컨트롤 UI 보강 (하단 구/동 드롭다운 · 줌/스카이뷰 · 컨텍스트 바) | 8/18 회의 지시 ①② | ✅ **완료** (2026-08-19) |
+| 행정동 경계 폴리곤 표시 + 행정동 목록 실데이터 425건 교체 | 8/18 회의 지시 ② 심화 | ✅ **완료** (2026-08-20) |
 
 ---
 
@@ -69,6 +71,13 @@
 | ③ | Step 1 히트맵 영역에 실제 지도 렌더링 | 제안 | ✅ 완료 (마커 포함) |
 | ④ | Step 3 BottomSheet 재검토 | 필수 | ✅ 완료 (CustomOverlay 대체) |
 | ⑤ | Step 4-1 부모 라우트 + 4-2·4-3·4-4 자식 재편 | 필수 | ✅ 완료 |
+
+### 📋 팀 정기회의 지시사항 (2026-08-18) — 전부 완료
+
+| # | 지시 내용 | 성격 | 상태 |
+| --- | --- | --- | --- |
+| ① | 업소 지도 하단에 드롭다운 — 행정동 선택 시 해당 마커로 이동 | 필수 | ✅ 완료 (2026-08-19) |
+| ② | 기존 카카오맵 수준의 지도 UI 구현 | 필수 | ✅ 완료 (2026-08-19 컨트롤 UI + 2026-08-20 경계 폴리곤) |
 
 ---
 
@@ -134,6 +143,7 @@ CS100005 제과점        CS100010 커피-음료
 | --- | --- |
 | geom 컬럼 적재 | ✅ **완료** (2026-08-17 DB팀 확인) |
 | `/api/map/heatmap` 엔드포인트 | ❓ 미확인 — 컬럼 적재 ≠ API 완성, 확인 질문 필요 |
+| FE 자체 경계 데이터 | ✅ **확보** (2026-08-20, `assets/geo/seoul_dong.json` 425건) — API 없이도 경계 렌더 가능 |
 
 ### `government_supports` — 정부 지원사업 (필드명 확정, 필터 불가)
 
@@ -153,7 +163,7 @@ CS100005 제과점        CS100010 커피-음료
 
 | 항목 | 내용 |
 | --- | --- |
-| 행정동 | `districts` 427건 · 자치구 25개 — **목록 API 제공 가능** (FE 하드코딩 제거 가능) |
+| 행정동 | `districts` 427건 · 자치구 25개 — **목록 API 제공 가능** (Task 4-3에서 하드코딩 제거 예정)<br>⚠️ FE 보유 경계 데이터는 **425건** — 행정동 개편 시점 차이로 추정, 회의 확인 필요 (DEVLOG 미해결 9번) |
 | 업소 마커 | `businesses` 537,488건 — `biz_name`/`category_name`/`lat`/`lng`/`open_status` 조회 검증 완료 |
 | 임대료 | `rent_stats` — **자치구 단위**만 가능 (행정동 아님) → 화면 문구 명시 |
 | 상권변화 | `market_trends.trend_grade`(HH/HL/LH/LL) + `trend_grade_nm` **BE가 문구까지 제공** |
@@ -216,9 +226,20 @@ CS100005 제과점        CS100010 커피-음료
 
 ---
 
+## 📂 Assets
+
+| 경로 | 크기 | 추가 시점 | 내용 |
+| --- | --- | --- | --- |
+| `assets/geo/seoul_dong.json` | 146KB | 2026-08-20 | 서울 425개 행정동 경계(GeoJSON). 행정안전부 고시 기준, mapshaper 10% 간소화 |
+
+> `pubspec.yaml`에 `assets: - assets/geo/` 등록됨.
+> ⚠️ **assets 추가·변경은 hot reload로 반영되지 않음** — 앱 완전 재시작 필요.
+
+---
+
 ## 📁 폴더 구조
 
-> ✅ **2026-08-16 Phase 1~4 재구조화 완료** (총 41개 파일)
+> ✅ **2026-08-16 Phase 1~4 재구조화 완료** · **2026-08-20 `data/` 레이어 신설** (총 42개 파일)
 > 경로·파일명에서 Step 번호 제거 — 순서가 또 바뀌어도 파일은 안 건드리도록.
 > `(예정)` 표시는 아직 생성되지 않은 파일입니다.
 
@@ -226,6 +247,8 @@ CS100005 제과점        CS100010 커피-음료
 lib/
 ├── main.dart                     # ProviderScope + GoRouter + 카카오맵 콘센트 등록
 ├── firebase_options.dart         # FlutterFire CLI 자동 생성
+├── data/                         # 1개 ⭐ 2026-08-20 신설
+│   └── seoul_districts.dart      # 서울 425개 행정동 (스크립트 생성 · 수동 편집 금지)
 ├── app/
 │   ├── router.dart               # go_router 전체 라우트 (StatefulShellRoute 포함)
 │   └── theme.dart                # SurbiColors · TextStyle · ButtonStyle
@@ -239,7 +262,7 @@ lib/
 │   └── checklist_item.dart       # 창업 체크리스트 항목
 ├── services/                     # 2개
 │   ├── kakao_map_interop.dart         # dart:js_interop 통역 레이어
-│   ├── kakao_map_view_registry.dart   # HtmlElementView 등록 + 마커/오버레이 로직
+│   ├── kakao_map_view_registry.dart   # HtmlElementView 등록 + 마커/오버레이/경계 폴리곤
 │   ├── (예정) auth_service.dart       # Task 2-2
 │   └── (예정) api_service.dart        # Task 2-4
 ├── providers/                    # 6개
@@ -261,6 +284,7 @@ lib/
     │   ├── responsive_layout.dart     # maxWidth 파라미터화, 화면별 개별 적용
     │   ├── surbi_app_bar.dart · surbi_card.dart
     │   ├── surbi_dropdown.dart        # OverlayEntry + LayerLink 커스텀 드롭다운
+    │   │                              #   openUpward · onMenuVisibilityChanged 옵션
     │   └── surbi_loading.dart · surbi_error.dart · surbi_empty.dart
     └── step4/                    # 10개 ⚠️ 폴더명은 아직 step4 유지
         ├── score_shell.dart           # ④ 허브 — LayoutBuilder 900px 분기 + 탭바
@@ -273,6 +297,7 @@ lib/
 
 ※ widgets/step2/ 폴더 없음
 ※ widgets/step4/ 폴더명만 Step 번호가 남아있음 — 파일명 정리 시 함께 검토 대상
+※ lib/data/ 는 스크립트가 생성한 데이터 전용 — 로직을 두지 않음
 ```
 
 ### 🗺️ 라우트 맵
@@ -443,11 +468,12 @@ service cloud.firestore {
 | Step | 미완 항목 | 상태 / 연결 Task |
 | --- | --- | --- |
 | 1 | ~~카테고리 버튼 CS코드 교체~~ | ✅ 완료 (Phase 1.5) |
-| 1 | 구/동 목록 하드코딩 제거 → 행정동 목록 API | Task 4-3 (API 제공 가능 확인됨) |
-| 1 | 히트맵 실데이터 (geom 기반 색칠) | 🔄 geom 적재 완료(8/17), 엔드포인트 완성 여부 확인 중 |
+| 1 | 구/동 목록 하드코딩 제거 → 행정동 목록 API | Task 4-3 — 8/20에 목록 자체는 **팀 DB 기준 실데이터 425건으로 교체**(하드코딩 형태는 유지) |
+| 1 | 히트맵 실데이터 (geom 기반 색칠) | 🔄 경계 데이터는 FE 자체 확보(8/20). 남은 건 점수 바인딩 — 구현 방식 결정 필요 |
 | 2(지도) | ~~건물 → 업소 재정의~~ | ✅ 완료 (Phase 3) |
 | 2(지도) | 마커 클러스터링 | Task 4-5 — 실데이터 464개 붙은 후 |
 | 2(지도) | 오버레이 카드 거리 표시 | Task 4-5 |
+| 2(지도) | ~~행정동 경계 폴리곤 표시~~ | ✅ 완료 (2026-08-20) — 선택 동 1개 렌더 + setBounds 자동 맞춤 |
 | 3(분석) | ~~비교 차트 → TOP5 매출 순위~~ | ✅ 완료 (Phase 4) |
 | 3(분석) | ~~지표 표기 정정(경쟁도·유동인구·임대료·분기)~~ | ✅ 완료 (Phase 4) |
 | 3(분석) | 소비 패턴(시간대/성별/연령) 차트 | Task 4-4 |
@@ -630,4 +656,4 @@ Future<String> pollReport(String reportId) async {
 
 ---
 
-*FRONT-END WORKFLOW v4.2 · 사공민규 · 최종 수정: 2026.08.19*
+*FRONT-END WORKFLOW v4.3 · 사공민규 · 최종 수정: 2026.08.20*
