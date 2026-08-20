@@ -472,11 +472,16 @@ Future<void> _ensureBoundaryLoaded() async {
 /// 공용 함수를 한 값으로 통일했다가, "이 변경이 필요한 화면"과 "이 변경을 받는
 /// 화면"이 다르다는 걸 놓쳐 업소 지도의 채움까지 함께 사라진 적이 있다.
 /// 공용화는 같은 이유로 같은 것이 필요할 때 가치가 있지, 코드가 우연히 같아서가 아니다.
+///
+/// [fitBounds] false면 폴리곤만 그리고 카메라는 건드리지 않는다.
+/// Step 1은 "어디가 좋은지 발견하는 화면"이라 동을 골라도 구 전체 시야를 유지해야
+/// 비교 맥락이 남는다. 업소 지도는 그 동 하나를 파고드는 화면이라 맞춰주는 게 맞다.
 Future<KakaoPolygon?> _renderBoundary(
   KakaoMap? map,
   Region region, {
   double fillOpacity = 0.15,
   num strokeWeight = 3,
+  bool fitBounds = true,
 }) async {
   if (map == null) return null;
 
@@ -509,11 +514,13 @@ Future<KakaoPolygon?> _renderBoundary(
 
   // 경계 좌표 전부를 담는 사각 영역을 만들어 화면을 딱 맞춤
   // (동마다 면적이 달라서 고정 줌 레벨보다 정확함)
-  final bounds = KakaoLatLngBounds();
-  for (final point in path) {
-    bounds.extend(point);
+  if (fitBounds) {
+    final bounds = KakaoLatLngBounds();
+    for (final point in path) {
+      bounds.extend(point);
+    }
+    map.setBounds(bounds);
   }
-  map.setBounds(bounds);
 
   return polygon;
 }
@@ -530,7 +537,12 @@ Future<bool> drawRegionBoundary(Region region) async {
   return _regionPolygon != null;
 }
 
-/// [Step 1] 선택된 행정동의 경계를 그리고 화면을 맞춤 (2026-08-20 추가)
+/// [Step 1] 선택된 행정동의 경계를 강조 표시 (2026-08-20 추가)
+///
+/// 카메라는 건드리지 않는다(`fitBounds: false`). Step 1은 팀 설계상
+/// "행정동별 점수 히트맵에서 좋은 동을 **발견**하는 화면"이라, 동을 골랐다고
+/// 그 동만 확대하면 비교 대상이 화면 밖으로 나가 화면의 목적이 사라진다.
+/// 그 동 하나를 파고드는 일은 다음 화면(업소 지도)의 몫이다.
 Future<bool> drawRegionBoundaryStep1(Region region) async {
   _regionPolygonStep1?.setMap(null);
   // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
@@ -539,6 +551,7 @@ Future<bool> drawRegionBoundaryStep1(Region region) async {
     region,
     fillOpacity: 0.35,
     strokeWeight: 4,
+    fitBounds: false, // ⭐ 구 전체 시야 유지
   );
   return _regionPolygonStep1 != null;
 }
@@ -549,8 +562,11 @@ void clearRegionBoundaryStep1() {
   _regionPolygonStep1 = null;
 }
 
-/// [Step 1] 동을 선택하면 경계를 칠하고 화면을 맞춤.
-/// 경계 데이터가 없으면 중심 좌표로 이동하는 기존 방식으로 폴백한다.
+/// [Step 1] 동을 선택하면 경계를 강조한다. 카메라는 구 전체에 그대로 둔다.
+///
+/// 경계 데이터가 없을 때만 중심 좌표로 이동하는 기존 방식으로 폴백한다.
+/// (폴백은 방어 코드다 — `kSeoulDistricts`가 이 GeoJSON에서 생성됐으므로
+///  모든 동에 경계가 있고, 실제로 이 분기를 타는 경우는 없어야 정상이다.)
 Future<void> focusRegionStep1(Region region) async {
   final drawn = await drawRegionBoundaryStep1(region);
   if (drawn) return;

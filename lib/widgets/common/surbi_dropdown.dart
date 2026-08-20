@@ -102,7 +102,12 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                               horizontal: 16,
                               vertical: 12,
                             ),
-                            child: Text(widget.labelBuilder(item)),
+                            // 메뉴는 버튼 폭을 따라가므로 좁은 화면에서는 항목도 넘칠 수 있다
+                            child: Text(
+                              widget.labelBuilder(item),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         );
                       }).toList(),
@@ -163,8 +168,13 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
           child: Row(
             children: [
               Expanded(
+                // 3분할 배치처럼 폭이 좁아지는 자리에서 긴 라벨(호프-간이주점 등)이
+                // 말줄임 없이 뚝 잘리던 문제 방지. Flutter 기본값은 TextOverflow.clip이라
+                // Expanded 안에서도 글자가 그냥 끊긴다. (2026-08-20 추가)
                 child: Text(
                   displayText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: widget.value != null
                         ? Colors.black

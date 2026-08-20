@@ -75,11 +75,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // ① 지역·업종 선택
+      // ① 지역·업종 선택 (= 행정동 점수 히트맵에서 좋은 동을 '발견'하는 화면)
+      // 2026-08-20 — maxWidth 500(기본값) → infinity.
+      // 지도가 주인공인 화면이라 폭 제한을 풀었고, ②업소 지도와 폭이 같아져
+      // 화면 전환 시 레이아웃이 급변하지 않는다. 컨트롤 바·버튼은 화면 안에서
+      // 각자 760으로 묶여 초대형 모니터에서도 늘어지지 않는다.
       GoRoute(
         path: '/select',
-        builder: (context, state) =>
-            const ResponsiveLayout(child: RegionSelectPage()),
+        builder: (context, state) => const ResponsiveLayout(
+          maxWidth: double.infinity,
+          child: RegionSelectPage(),
+        ),
       ),
 
       // ② 업소 지도 — 선택한 동네의 경쟁 업소 분포 확인
