@@ -17,11 +17,23 @@ class RegionSelectPage extends ConsumerWidget {
     final categories = ref.watch(categoryListProvider);
     final selection = ref.watch(regionNotifierProvider);
 
-    // ⭐ 추가 — selectedGu가 바뀔 때마다(그때만!) 마커를 다시 찍음
+    // ⭐ 선택 변화를 지도에 반영 (2026-08-20 — 동 선택 반응 추가)
     ref.listen<RegionSelection>(regionNotifierProvider, (previous, next) {
+      // ① 구가 바뀌면 — 이전 동의 경계를 지우고, 새 구의 동 마커를 다시 찍음
       if (previous?.selectedGu != next.selectedGu) {
-        final regionsInGu = ref.read(regionsByGuProvider(next.selectedGu));
-        addRegionMarkers(regionsInGu);
+        clearRegionBoundaryStep1();
+        addRegionMarkers(ref.read(regionsByGuProvider(next.selectedGu)));
+      }
+
+      // ② 동이 바뀌면 — 그 동의 경계를 칠하고 화면을 맞춤
+      //    기존에는 동을 골라도 지도가 아무 반응이 없어, 내가 고른 동이
+      //    지도의 어느 핀인지 알 수 없었음
+      if (previous?.regionCode != next.regionCode && next.regionCode != null) {
+        final region = _findSelectedRegion(
+          ref.read(regionsByGuProvider(next.selectedGu)),
+          next.regionCode,
+        );
+        if (region != null) focusRegionStep1(region);
       }
     });
 
@@ -36,7 +48,7 @@ class RegionSelectPage extends ConsumerWidget {
               const SizedBox(height: 24),
               _buildCategoryButtons(ref, categories, selection),
               const SizedBox(height: 24),
-              _buildMapArea(), // ⭐ 이름 변경: _buildHeatmapPlaceholder → _buildMapArea
+              _buildMapArea(ref, selection, categories), // ⭐ 선택 배지 추가
               const SizedBox(height: 24),
               _buildStartButton(context, selection),
             ],
@@ -44,6 +56,15 @@ class RegionSelectPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// 드롭다운 메뉴가 열려 있는 동안 Step 1 지도의 드래그·휠을 잠금 (2026-08-20 추가)
+  ///
+  /// 메뉴는 Flutter 오버레이, 지도는 Platform View라 휠·드래그 이벤트가 양쪽에
+  /// 이중 전달돼 목록을 스크롤하면 지도가 같이 움직였다. 업소 지도와 동일한 처리이나
+  /// Step 1은 지도 인스턴스가 별개(kakaoMapInstanceStep1)라 전용 함수를 쓴다.
+  void _lockMapWhileMenuOpen(bool isMenuOpen) {
+    setMapInteractiveStep1(!isMenuOpen);
   }
 
   /// regions 목록에서 code와 일치하는 Region을 찾아 반환.
@@ -78,6 +99,7 @@ class RegionSelectPage extends ConsumerWidget {
             hintText: '구 선택',
             items: guNameList,
             labelBuilder: (gu) => gu,
+            onMenuVisibilityChanged: _lockMapWhileMenuOpen, // ⭐ 추가
             onChanged: (guName) {
               ref.read(regionNotifierProvider.notifier).selectGu(guName);
             },
@@ -90,6 +112,7 @@ class RegionSelectPage extends ConsumerWidget {
             hintText: '동 선택',
             items: regionsInGu,
             labelBuilder: (region) => region.regionName,
+            onMenuVisibilityChanged: _lockMapWhileMenuOpen, // ⭐ 추가
             onChanged: selection.selectedGu == null
                 ? null
                 : (region) {
@@ -138,9 +161,22 @@ class RegionSelectPage extends ConsumerWidget {
     );
   }
 
-  /// 지역 지도 영역 — Kakao 지도 렌더링 (기존 히트맵 placeholder 대체)
-  /// TODO: 실제 색칠 히트맵은 districts.geom 컬럼 적재 완료 후 별도 구현 예정 (Task 4-3)
-  Widget _buildMapArea() {
+  /// 지역 지도 영역 — Kakao 지도 + 현재 선택 상태 배지
+  ///
+  /// 2026-08-20 — 선택(구/동/업종)이 지도에 아무 흔적을 남기지 않아
+  /// "내가 뭘 고른 상태인지" 알 수 없던 문제를 배지로 해소.
+  /// TODO: 점수 기반 색칠 히트맵은 별도 구현 예정 (Task 4-3)
+  Widget _buildMapArea(
+    WidgetRef ref,
+    RegionSelection selection,
+    List<Map<String, String>> categories,
+  ) {
+    final regionsInGu = ref.watch(regionsByGuProvider(selection.selectedGu));
+    final selectedRegion = _findSelectedRegion(
+      regionsInGu,
+      selection.regionCode,
+    );
+
     return Container(
       width: double.infinity,
       height: 300,
@@ -149,8 +185,100 @@ class RegionSelectPage extends ConsumerWidget {
         color: SurbiColors.placeholderGray,
         borderRadius: BorderRadius.circular(SurbiRadius.card),
       ),
-      child: const HtmlElementView(viewType: 'kakao-map-view-step1'),
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: HtmlElementView(viewType: 'kakao-map-view-step1'),
+          ),
+          // 구를 고르기 전에는 표시할 내용이 없으므로 배지 자체를 띄우지 않음
+          if (selection.selectedGu != null)
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: _buildSelectionBadge(
+                selection,
+                selectedRegion,
+                categories,
+              ),
+            ),
+        ],
+      ),
     );
+  }
+
+  /// 지도 위 선택 상태 배지 — `서울특별시 › 마포구 › 망원1동` + 업종 칩
+  ///
+  /// 업소 지도(map_page)의 컨텍스트 바와 같은 형태로 맞춰, 두 화면을 오갈 때
+  /// 사용자가 같은 정보를 같은 자리에서 읽도록 함.
+  Widget _buildSelectionBadge(
+    RegionSelection selection,
+    Region? selectedRegion,
+    List<Map<String, String>> categories,
+  ) {
+    final parts = <String>['서울특별시'];
+    if (selection.selectedGu != null) parts.add(selection.selectedGu!);
+    if (selectedRegion != null) parts.add(selectedRegion.regionName);
+
+    final categoryName = _findCategoryName(categories, selection.categoryCode);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(SurbiRadius.pill),
+        elevation: 3,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  parts.join(' › '),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SurbiColors.accent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              if (categoryName != null) ...[
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: SurbiColors.accent,
+                    borderRadius: BorderRadius.circular(SurbiRadius.pill),
+                  ),
+                  child: Text(
+                    categoryName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 업종 코드로 표시용 이름을 찾음. 선택 전이거나 못 찾으면 null
+  String? _findCategoryName(List<Map<String, String>> categories, String? code) {
+    if (code == null) return null;
+    for (final category in categories) {
+      if (category['code'] == code) return category['name'];
+    }
+    return null;
   }
 
   Widget _buildCategoryButtons(

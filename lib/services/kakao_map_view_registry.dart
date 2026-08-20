@@ -415,8 +415,9 @@ void setMapSkyview(bool isSkyview) {
 /// 앱 실행 중 딱 한 번만 파일을 읽어 캐시에 올리고 계속 재사용(메모이제이션)
 Map<String, List<KakaoLatLng>>? _boundaryCache;
 
-/// 지금 지도에 그려져 있는 경계 폴리곤 (항상 1개만 유지)
-KakaoPolygon? _regionPolygon;
+/// 지금 지도에 그려져 있는 경계 폴리곤 (지도별로 항상 1개만 유지)
+KakaoPolygon? _regionPolygon; // 업소 지도(kakaoMapInstance)용
+KakaoPolygon? _regionPolygonStep1; // Step 1 지도(kakaoMapInstanceStep1)용
 
 /// assets의 GeoJSON을 읽어 캐시에 올림. 이미 올라와 있으면 즉시 반환
 Future<void> _ensureBoundaryLoaded() async {
@@ -449,22 +450,17 @@ Future<void> _ensureBoundaryLoaded() async {
   _boundaryCache = cache;
 }
 
-/// 선택된 행정동의 경계를 그리고 화면을 그 영역에 맞춤
+/// 경계 폴리곤을 실제로 그리는 핵심 로직 (Step1·업소 지도 공용)
 ///
-/// 반환값 true  = 폴리곤을 그렸음 (카메라도 setBounds로 맞춰짐)
-/// 반환값 false = 경계 데이터가 없어 못 그림 → 호출한 쪽이 기존 방식으로 폴백해야 함
-Future<bool> drawRegionBoundary(Region region) async {
-  final map = kakaoMapInstance;
-  if (map == null) return false;
+/// 지도 인스턴스를 인자로 받아, 성공하면 만들어진 폴리곤을 반환한다.
+/// 실패(지도 미생성·경계 데이터 없음) 시 null → 호출한 쪽이 폴백을 결정한다.
+Future<KakaoPolygon?> _renderBoundary(KakaoMap? map, Region region) async {
+  if (map == null) return null;
 
   await _ensureBoundaryLoaded();
 
-  // 이전 폴리곤 제거 (업소 마커·강조 핀은 건드리지 않음)
-  _regionPolygon?.setMap(null);
-  _regionPolygon = null;
-
   final path = _boundaryCache![region.regionCode];
-  if (path == null) return false; // 경계 정보 없는 동 → 조용히 폴백
+  if (path == null) return null; // 경계 정보 없는 동
 
   // ⚠️ 임시 강조색 — 디자인 확정 시 theme.dart로 이관 예정
   final polygon = KakaoPolygon(
@@ -478,7 +474,6 @@ Future<bool> drawRegionBoundary(Region region) async {
     ),
   );
   polygon.setMap(map);
-  _regionPolygon = polygon;
 
   // 경계 좌표 전부를 담는 사각 영역을 만들어 화면을 딱 맞춤
   // (동마다 면적이 달라서 고정 줌 레벨보다 정확함)
@@ -488,7 +483,43 @@ Future<bool> drawRegionBoundary(Region region) async {
   }
   map.setBounds(bounds);
 
-  return true;
+  return polygon;
+}
+
+/// [업소 지도] 선택된 행정동의 경계를 그리고 화면을 그 영역에 맞춤
+///
+/// 반환값 true  = 폴리곤을 그렸음 (카메라도 setBounds로 맞춰짐)
+/// 반환값 false = 경계 데이터가 없어 못 그림 → 호출한 쪽이 기존 방식으로 폴백해야 함
+Future<bool> drawRegionBoundary(Region region) async {
+  // 이전 폴리곤 제거 (업소 마커·강조 핀은 건드리지 않음)
+  _regionPolygon?.setMap(null);
+  _regionPolygon = await _renderBoundary(kakaoMapInstance, region);
+  return _regionPolygon != null;
+}
+
+/// [Step 1] 선택된 행정동의 경계를 그리고 화면을 맞춤 (2026-08-20 추가)
+Future<bool> drawRegionBoundaryStep1(Region region) async {
+  _regionPolygonStep1?.setMap(null);
+  _regionPolygonStep1 = await _renderBoundary(kakaoMapInstanceStep1, region);
+  return _regionPolygonStep1 != null;
+}
+
+/// [Step 1] 경계 폴리곤 제거 — 구를 바꾸면 이전 동 선택이 무효가 되므로 함께 지움
+void clearRegionBoundaryStep1() {
+  _regionPolygonStep1?.setMap(null);
+  _regionPolygonStep1 = null;
+}
+
+/// [Step 1] 동을 선택하면 경계를 칠하고 화면을 맞춤.
+/// 경계 데이터가 없으면 중심 좌표로 이동하는 기존 방식으로 폴백한다.
+Future<void> focusRegionStep1(Region region) async {
+  final drawn = await drawRegionBoundaryStep1(region);
+  if (drawn) return;
+
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+  map.setLevel(4);
+  map.panTo(KakaoLatLng(region.lat, region.lng));
 }
 
 /// 지도의 드래그·휠 확대축소를 한꺼번에 켜고 끔 (2026-08-20 추가)
@@ -499,6 +530,14 @@ Future<bool> drawRegionBoundary(Region region) async {
 /// 이벤트 흐름을 역추적하는 대신 카카오맵이 제공하는 전용 함수로 정면 차단한다.
 void setMapInteractive(bool enabled) {
   final map = kakaoMapInstance;
+  if (map == null) return;
+  map.setDraggable(enabled);
+  map.setZoomable(enabled);
+}
+
+/// [Step 1] 지도의 드래그·휠 확대축소를 켜고 끔 — Step 1은 지도 인스턴스가 별개라 별도 함수
+void setMapInteractiveStep1(bool enabled) {
+  final map = kakaoMapInstanceStep1;
   if (map == null) return;
   map.setDraggable(enabled);
   map.setZoomable(enabled);
