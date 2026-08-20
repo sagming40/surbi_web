@@ -19,10 +19,12 @@ class RegionSelectPage extends ConsumerWidget {
 
     // ⭐ 선택 변화를 지도에 반영 (2026-08-20 — 동 선택 반응 추가)
     ref.listen<RegionSelection>(regionNotifierProvider, (previous, next) {
-      // ① 구가 바뀌면 — 이전 동의 경계를 지우고, 새 구의 동 마커를 다시 찍음
+      // ① 구가 바뀌면 — 그 구의 동 경계 전체를 회색으로 깔고(히트맵 밑그림)
+      //    이전 동 선택을 지운 뒤 동 마커를 다시 찍음.
+      //    세 동작의 순서가 서로 얽혀 있어 showGuOnStep1() 한 함수로 묶음
+      //    (기존: clearRegionBoundaryStep1() + addRegionMarkers())
       if (previous?.selectedGu != next.selectedGu) {
-        clearRegionBoundaryStep1();
-        addRegionMarkers(ref.read(regionsByGuProvider(next.selectedGu)));
+        showGuOnStep1(ref.read(regionsByGuProvider(next.selectedGu)));
       }
 
       // ② 동이 바뀌면 — 그 동의 경계를 칠하고 화면을 맞춤

@@ -4,6 +4,7 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'dart:js_interop'; // 추가!
 import 'dart:convert'; // ⭐ 추가 — JSON 문자열 → Dart 객체 변환
+import 'package:flutter/foundation.dart'; // ⭐ 추가 — debugPrint (성능 계측 로그)
 import 'package:flutter/services.dart'; // ⭐ 추가 — rootBundle (assets 읽기)
 import 'kakao_map_interop.dart'; // 추가!
 import 'package:surbi_web/models/business.dart';
@@ -277,7 +278,14 @@ void registerKakaoMapViewStep1() {
 List<KakaoMarker> _step1RegionMarkers = [];
 
 /// Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
-Future<void> addRegionMarkers(List<Region> regions) async {
+///
+/// [moveCamera] false면 마커만 찍고 카메라(중심·줌)는 건드리지 않는다.
+/// 구 경계 폴리곤이 setBounds로 이미 화면을 맞춘 뒤에 호출되는 경우,
+/// 카메라가 두 번 움직여 화면이 덜컹거리는 걸 막기 위함. (2026-08-20 추가)
+Future<void> addRegionMarkers(
+  List<Region> regions, {
+  bool moveCamera = true,
+}) async {
   final map = kakaoMapInstanceStep1;
   if (map == null) return;
 
@@ -330,7 +338,8 @@ Future<void> addRegionMarkers(List<Region> regions) async {
     bounds.extend(position);
   }
 
-  map.setBounds(bounds);
+  // ⭐ 폴리곤이 이미 화면을 맞췄으면(moveCamera=false) 카메라는 손대지 않음
+  if (moveCamera) map.setBounds(bounds);
 }
 
 // ─────────────────────────────────────────────
@@ -541,4 +550,114 @@ void setMapInteractiveStep1(bool enabled) {
   if (map == null) return;
   map.setDraggable(enabled);
   map.setZoomable(enabled);
+}
+
+// ─────────────────────────────────────────────
+// ④ 구 전체 경계 = 히트맵 밑그림 (2026-08-20 추가)
+//
+// ③이 "동 하나"를 주황으로 칠하는 것이라면, ④는 "구에 속한 동 전부"를
+// 연회색으로 한꺼번에 깔아 히트맵의 밑바탕을 만든다.
+// 지금은 전부 같은 회색이지만, 이 자리에 점수별 색을 넣으면 그대로 히트맵이 된다.
+// (Task 4-3 — scores 연동 시 fillColor만 점수 기반 함수로 교체 예정)
+//
+// ⚠️ scores는 행정동 397개만 존재(전체 대비 약 30개 누락) → 색칠 못 하는 동의
+//    표시 규칙(회색 유지 / 빗금 등)을 색칠 단계 전에 정해야 함
+// ─────────────────────────────────────────────
+
+/// 지금 Step 1 지도에 깔려 있는 "구 전체 동 경계" 폴리곤들.
+/// 동 하나짜리 주황 폴리곤(_regionPolygonStep1)과는 별개로 관리한다 —
+/// 구를 바꿀 때 통째로 지워야 하고, 동을 바꿀 때는 남아 있어야 하기 때문.
+List<KakaoPolygon> _guPolygonsStep1 = [];
+
+/// [Step 1] 구에 속한 모든 행정동 경계를 연회색으로 렌더 (히트맵 밑그림)
+///
+/// 폴리곤 개수·좌표 개수·소요 시간을 debugPrint로 출력한다.
+/// 서울 전역(425개·약 4,400좌표)을 상시 렌더할 수 있는지 판단하기 위한 계측이며,
+/// 판단이 끝나면 로그는 제거 예정.
+Future<void> drawGuBoundaries(List<Region> regions) async {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+
+  // 이전 구의 폴리곤을 전부 제거 — 이걸 빼먹으면 구를 바꿀수록 경계가 쌓인다
+  for (final polygon in _guPolygonsStep1) {
+    polygon.setMap(null);
+  }
+  _guPolygonsStep1 = [];
+
+  if (regions.isEmpty) return; // 구 선택 해제 등
+
+  // 지도 컨테이너가 실제 크기를 잡을 시간을 벌어줌.
+  // 이걸 빼면 첫 진입 때 setBounds가 0×0 크기 기준으로 계산돼 화면이 엉뚱한 데를 비춘다.
+  // (계측을 오염시키지 않도록 Stopwatch 시작 전에 처리)
+  await Future.delayed(const Duration(milliseconds: 300));
+  map.relayout();
+
+  // ⏱️ 파일 읽기·파싱(146KB)은 앱 전체에서 딱 1회뿐 → 매번 치르는 렌더 비용과 분리해 측정
+  final loadWatch = Stopwatch()..start();
+  await _ensureBoundaryLoaded();
+  loadWatch.stop();
+
+  // ⏱️ 여기서부터가 "구를 바꿀 때마다 매번 치르는 비용"
+  final renderWatch = Stopwatch()..start();
+
+  final bounds = KakaoLatLngBounds();
+  var pointCount = 0; // 실제로 그린 좌표 총개수 — 성능의 진짜 원인은 폴리곤 수가 아니라 좌표 수
+  var missingCount = 0; // 경계 데이터가 없는 동 (GeoJSON 425 vs Region 목록 불일치 감지용)
+
+  for (final region in regions) {
+    final path = _boundaryCache![region.regionCode];
+    if (path == null) {
+      missingCount++;
+      continue;
+    }
+
+    // ⚠️ 임시 색 — 디자인 확정 시 theme.dart로 이관 예정
+    // 주황 동 폴리곤(③)보다 먼저 그려지므로 자연히 아래에 깔린다.
+    // (구 선택 → 동 선택 순서가 보장되고, 구가 바뀌면 주황도 함께 지워지므로
+    //  별도 zIndex 없이 그리는 순서만으로 위아래가 맞는다)
+    final polygon = KakaoPolygon(
+      KakaoPolygonOptions(
+        path: path.toJS,
+        strokeWeight: 1,
+        strokeColor: '#8A94A6',
+        strokeOpacity: 0.8,
+        fillColor: '#C9D1DC',
+        fillOpacity: 0.25,
+      ),
+    );
+    polygon.setMap(map);
+    _guPolygonsStep1.add(polygon);
+
+    for (final point in path) {
+      bounds.extend(point);
+      pointCount++;
+    }
+  }
+
+  // 구 전체가 화면에 들어오도록 맞춤 (구마다 면적이 달라 고정 줌보다 정확)
+  if (_guPolygonsStep1.isNotEmpty) map.setBounds(bounds);
+
+  renderWatch.stop();
+
+  debugPrint(
+    '[히트맵 성능] ${regions.first.guName} · '
+    '폴리곤 ${_guPolygonsStep1.length}개 · '
+    '좌표 $pointCount개 · '
+    '렌더 ${renderWatch.elapsedMilliseconds}ms '
+    '(GeoJSON 로드 ${loadWatch.elapsedMilliseconds}ms)'
+    '${missingCount > 0 ? " · ⚠️ 경계없음 $missingCount개" : ""}',
+  );
+}
+
+/// [Step 1] 구를 선택했을 때 지도가 해야 할 일을 한 곳에 모은 함수
+///
+/// 순서에 의미가 있다:
+///   ① 이전 동의 주황 경계 제거 — 구가 바뀌면 이전 동 선택은 무효
+///   ② 구 전체 동 경계를 회색으로 렌더 + 카메라를 구 전체에 맞춤
+///   ③ 동 중심 마커를 찍되 카메라는 건드리지 않음(moveCamera: false)
+///      — ②가 이미 맞춰놨는데 또 움직이면 화면이 두 번 덜컹거림
+Future<void> showGuOnStep1(List<Region> regions) async {
+  clearRegionBoundaryStep1();
+  await drawGuBoundaries(regions);
+  await addRegionMarkers(regions, moveCamera: false);
 }
