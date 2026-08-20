@@ -463,7 +463,21 @@ Future<void> _ensureBoundaryLoaded() async {
 ///
 /// 지도 인스턴스를 인자로 받아, 성공하면 만들어진 폴리곤을 반환한다.
 /// 실패(지도 미생성·경계 데이터 없음) 시 null → 호출한 쪽이 폴백을 결정한다.
-Future<KakaoPolygon?> _renderBoundary(KakaoMap? map, Region region) async {
+///
+/// [fillOpacity]·[strokeWeight]를 부르는 쪽이 정하는 이유 (2026-08-20 추가):
+/// 두 화면은 아래 깔린 배경이 다르다. Step 1에는 구 전체 동 경계가 네이비로
+/// 깔려 있어 그 위를 이기려면 채움을 진하게 해야 하고, 업소 지도에는 밑칠이
+/// 없어 같은 값을 쓰면 과하게 진해진다.
+///
+/// 공용 함수를 한 값으로 통일했다가, "이 변경이 필요한 화면"과 "이 변경을 받는
+/// 화면"이 다르다는 걸 놓쳐 업소 지도의 채움까지 함께 사라진 적이 있다.
+/// 공용화는 같은 이유로 같은 것이 필요할 때 가치가 있지, 코드가 우연히 같아서가 아니다.
+Future<KakaoPolygon?> _renderBoundary(
+  KakaoMap? map,
+  Region region, {
+  double fillOpacity = 0.15,
+  num strokeWeight = 3,
+}) async {
   if (map == null) return null;
 
   await _ensureBoundaryLoaded();
@@ -471,15 +485,24 @@ Future<KakaoPolygon?> _renderBoundary(KakaoMap? map, Region region) async {
   final path = _boundaryCache![region.regionCode];
   if (path == null) return null; // 경계 정보 없는 동
 
-  // ⚠️ 임시 강조색 — 디자인 확정 시 theme.dart로 이관 예정
+  // 반투명은 위에서부터 덮어쓰므로, 아래 색이 남는 양 = (1 - 위쪽 불투명도) × 아래 불투명도.
+  // Step 1에서 주황 0.15 / 네이비 0.16이었을 때 네이비가 (1-0.15)×0.16 = 13.6% 남아
+  // 주황 15%와 거의 1대1로 비겨 갈색으로 보였다. 주황을 0.35로 올리면 네이비는
+  // 10.4%만 남아 3대1 이상으로 벌어진다. (2026-08-20 — 값 근거)
+  //
+  // ⚠️ Task 4-3 재검토 필요: 점수 색이 면에 들어오면 선택 동의 주황 채움이
+  //    그 동의 점수를 덮는다. 정작 궁금한 동의 점수가 안 보이게 되므로,
+  //    그때는 선택 표시를 선으로 옮기거나 테두리만 강조하는 방식으로 바꿀 것.
+  //    지금은 면에 담긴 정보가 없어 덮어도 잃을 것이 없다.
+  // ⚠️ 색값은 임시 — 디자인 확정 시 theme.dart로 이관 예정
   final polygon = KakaoPolygon(
     KakaoPolygonOptions(
       path: path.toJS,
-      strokeWeight: 3,
+      strokeWeight: strokeWeight,
       strokeColor: '#F2994A',
-      strokeOpacity: 0.9,
+      strokeOpacity: 1.0,
       fillColor: '#F2994A',
-      fillOpacity: 0.15,
+      fillOpacity: fillOpacity,
     ),
   );
   polygon.setMap(map);
@@ -502,6 +525,7 @@ Future<KakaoPolygon?> _renderBoundary(KakaoMap? map, Region region) async {
 Future<bool> drawRegionBoundary(Region region) async {
   // 이전 폴리곤 제거 (업소 마커·강조 핀은 건드리지 않음)
   _regionPolygon?.setMap(null);
+  // 이 화면에는 밑칠이 없다 → 기본값(0.15 / 3px) 그대로
   _regionPolygon = await _renderBoundary(kakaoMapInstance, region);
   return _regionPolygon != null;
 }
@@ -509,7 +533,13 @@ Future<bool> drawRegionBoundary(Region region) async {
 /// [Step 1] 선택된 행정동의 경계를 그리고 화면을 맞춤 (2026-08-20 추가)
 Future<bool> drawRegionBoundaryStep1(Region region) async {
   _regionPolygonStep1?.setMap(null);
-  _regionPolygonStep1 = await _renderBoundary(kakaoMapInstanceStep1, region);
+  // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
+  _regionPolygonStep1 = await _renderBoundary(
+    kakaoMapInstanceStep1,
+    region,
+    fillOpacity: 0.35,
+    strokeWeight: 4,
+  );
   return _regionPolygonStep1 != null;
 }
 
@@ -611,18 +641,31 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
       continue;
     }
 
-    // ⚠️ 임시 색 — 디자인 확정 시 theme.dart로 이관 예정
-    // 주황 동 폴리곤(③)보다 먼저 그려지므로 자연히 아래에 깔린다.
-    // (구 선택 → 동 선택 순서가 보장되고, 구가 바뀌면 주황도 함께 지워지므로
-    //  별도 zIndex 없이 그리는 순서만으로 위아래가 맞는다)
+    // 코로플레스(통계 지도) 방식 — 면이 데이터를 담고, 흰 선은 칸만 나눈다.
+    // Task 4-3에서 fillColor를 점수 기반으로 바꾸면 그대로 히트맵이 되고,
+    // 점수가 없는 동(scores 397개 vs 경계 425개)은 이 네이비를 그대로 유지한다.
+    //
+    // 회색이 아니라 네이비를 쓴 이유: 카카오맵 밑그림이 회색·흰색 톤이라
+    // 회색은 아무리 진하게 해도 "지도가 그린 선"으로 읽힌다. 대비가 아니라
+    // 색 계열을 바꿔야 우리가 그린 것으로 구분된다.
+    //
+    // z순서: 주황 동 폴리곤(③)보다 먼저 그려지므로 아래에 깔린다.
+    // 구 선택 → 동 선택 순서가 보장되고 구가 바뀌면 주황도 함께 지워지므로,
+    // 별도 zIndex 없이 그리는 순서만으로 위아래가 맞는다. (2026-08-20 실측 확인)
+    //
+    // ⚠️ 색값은 임시 — 디자인 확정 시 theme.dart로 이관 예정
+    //    (#1E3A5F = SurbiColors.accent와 동일 값)
     final polygon = KakaoPolygon(
       KakaoPolygonOptions(
         path: path.toJS,
-        strokeWeight: 1,
-        strokeColor: '#8A94A6',
-        strokeOpacity: 0.8,
-        fillColor: '#C9D1DC',
-        fillOpacity: 0.25,
+        strokeWeight: 1.5,
+        // 흰 선은 '선'이 아니라 타일 사이의 '틈'으로 기능한다 — 통계 지도의 표준 기법.
+        // 따라서 나눌 면이 있어야 의미가 있고, 면이 옅으면 밝은 지도 위의 흰 줄로만
+        // 남는다. 한때 면을 0.08까지 낮췄다가 이 조합이 성립하지 않아 되돌렸다.
+        strokeColor: '#FFFFFF',
+        strokeOpacity: 0.9,
+        fillColor: '#1E3A5F',
+        fillOpacity: 0.16,
       ),
     );
     polygon.setMap(map);
