@@ -245,7 +245,15 @@ KakaoMap? kakaoMapInstanceStep1;
 
 /// 지도가 실제 크기를 잡은 뒤 초기 화면(서울 전역 경계)을 한 번 그렸는지 여부.
 /// 지도를 새로 만들 때마다(화면 재진입) false로 되돌린다.
-bool _step1OverviewDrawn = false;
+bool _step1MapReadyNotified = false;
+
+/// Step 1 지도가 **실제로 그릴 수 있는 크기**가 된 첫 순간에 한 번 호출된다.
+///
+/// registry는 "언제 준비됐는지"만 알리고, **무엇을 그릴지는 화면이 결정한다.**
+/// 여기서 직접 서울 전역을 그리면, 화면이 이미 고른 구·동을 그리려 할 때
+/// 두 코드가 같은 지도를 두고 경쟁해 결과가 실행 순서에 따라 달라진다.
+/// (SurbiDropdown.onMenuVisibilityChanged와 같은 패턴 — 2026-08-21 추가)
+void Function()? onStep1MapReady;
 
 /// Step 1 히트맵 자리에 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
 /// main() 앱 시작할 때 registerKakaoMapView()와 함께 딱 한 번만 호출
@@ -253,8 +261,8 @@ void registerKakaoMapViewStep1() {
   ui_web.platformViewRegistry.registerViewFactory('kakao-map-view-step1', (
     int viewId,
   ) {
-    // 화면에 다시 들어오면 지도가 새로 만들어지므로 초기 화면도 다시 그리도록 되돌림
-    _step1OverviewDrawn = false;
+    // 화면에 다시 들어오면 지도가 새로 만들어지므로 준비 알림도 다시 보내도록 되돌림
+    _step1MapReadyNotified = false;
 
     final div = web.HTMLDivElement()
       ..id = 'kakao-map-step1-$viewId'
@@ -277,10 +285,17 @@ void registerKakaoMapViewStep1() {
         // 크기가 실제로 잡힌 첫 순간에 딱 한 번 초기 화면을 그린다.
         // 크기가 0인 상태에서 setBounds하면 엉뚱한 곳을 비추고,
         // 매번 다시 그리면 창 크기를 바꿀 때마다 보던 위치가 튕겨나간다.
-        if (!_step1OverviewDrawn && div.clientWidth > 0 && div.clientHeight > 0) {
-          _step1OverviewDrawn = true;
+        if (!_step1MapReadyNotified &&
+            div.clientWidth > 0 &&
+            div.clientHeight > 0) {
+          _step1MapReadyNotified = true;
           // 비동기지만 기다리지 않는다 — 관찰자 콜백을 붙잡고 있을 이유가 없다
-          drawSeoulOverviewStep1();
+          final onReady = onStep1MapReady;
+          if (onReady != null) {
+            onReady(); // 화면이 판단 (선택이 있으면 그 구·동, 없으면 서울 전역)
+          } else {
+            drawSeoulOverviewStep1(); // 훅을 등록하지 않은 경우의 기본 동작
+          }
         }
       }).toJS,
     );

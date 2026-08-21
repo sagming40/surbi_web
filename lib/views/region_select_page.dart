@@ -8,11 +8,56 @@ import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
 import 'package:surbi_web/services/kakao_map_view_registry.dart'; // ⭐ 추가
 
 /// Step 1: 지역 및 카테고리 선택 화면
-class RegionSelectPage extends ConsumerWidget {
+class RegionSelectPage extends ConsumerStatefulWidget {
   const RegionSelectPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RegionSelectPage> createState() => _RegionSelectPageState();
+}
+
+class _RegionSelectPageState extends ConsumerState<RegionSelectPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 지도가 준비되면 "지금 선택 상태"를 반영해달라고 등록해 둔다.
+    // ⚠️ ConsumerWidget → ConsumerStatefulWidget으로 바꾼 이유 (2026-08-21)
+    //    ref.listen은 '값이 바뀔 때'만 발동한다. 브라우저 뒤로가기로 이 화면에
+    //    돌아오면 선택값은 그대로(=변화 없음)인데 지도만 새로 만들어지므로,
+    //    listen이 울리지 않아 지도가 초기 화면에 머물렀다.
+    //    상태를 화면에 잇는 코드에는 두 축이 모두 필요하다 —
+    //    ① 진입 시 1회 동기화(여기) ② 이후 변화 감지(build의 ref.listen)
+    onStep1MapReady = _syncMapToSelection;
+  }
+
+  @override
+  void dispose() {
+    onStep1MapReady = null; // 다른 화면이 이 콜백을 물려받지 않도록 반드시 해제
+    super.dispose();
+  }
+
+  /// 지금 선택 상태를 지도에 그대로 반영한다 (지도 준비 시 1회).
+  ///
+  /// 서울 전역을 그릴지 특정 구·동을 그릴지 **여기서만** 결정하므로,
+  /// 같은 지도를 두 코드가 동시에 건드리는 상황이 생기지 않는다.
+  Future<void> _syncMapToSelection() async {
+    final selection = ref.read(regionNotifierProvider);
+
+    // 아무것도 안 고른 첫 방문 — 서울 전역 자치구 경계
+    if (selection.selectedGu == null) {
+      await drawSeoulOverviewStep1();
+      return;
+    }
+
+    final regionsInGu = ref.read(regionsByGuProvider(selection.selectedGu));
+    await showGuOnStep1(regionsInGu);
+    if (!mounted) return; // 그리는 사이 화면을 떠났으면 중단
+
+    final region = _findSelectedRegion(regionsInGu, selection.regionCode);
+    if (region != null) await focusRegionStep1(region);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final guNameList = ref.watch(guNameListProvider);
     final categories = ref.watch(categoryListProvider);
     final selection = ref.watch(regionNotifierProvider);
@@ -249,7 +294,9 @@ class RegionSelectPage extends ConsumerWidget {
               onPressed: isReady
                   ? () {
                       // 새 플로우: 선택 → 지도 → 분석 → 점수
-                      context.push(
+                      // go 사용 — push는 Flutter Web에서 주소창을 갱신하지 않음
+                      // (go_router 8.0+ 동작. 상세는 DEVLOG 미해결 7번 참조)
+                      context.go(
                         '/map/${selection.regionCode}/${selection.categoryCode}',
                       );
                     }
