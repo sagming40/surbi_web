@@ -67,8 +67,10 @@
 ```
 surbi_web/
 ├── docs/             # 프로젝트 문서 (아래 '문서' 섹션 참고)
+├── assets/geo/       # 서울 행정동·자치구 경계 GeoJSON
 └── lib/
     ├── app/          # 라우팅, 테마
+    ├── data/         # 스크립트로 생성한 정적 데이터 (수동 편집 금지)
     ├── models/       # 데이터 모델
     ├── services/     # API 통신, Firebase Auth, 카카오맵 interop
     ├── providers/    # Riverpod 상태 관리
@@ -84,13 +86,16 @@ surbi_web/
 | 문서 | 내용 |
 |------|------|
 | [FE_WORKFLOW.md](docs/FE_WORKFLOW.md) | **현재 진행 상황 + 다음 할 일** — EPIC · Task 단위 개발 계획 |
-| [FE_DEVLOG.md](docs/FE_DEVLOG.md) | **개발 일지** — 날짜별 작업 기록, 트러블슈팅, 프로젝트 상시 규칙 |
+| [FE_DEVLOG.md](docs/FE_DEVLOG.md) | **개발 일지** — 날짜별 작업 기록, 트러블슈팅, 프로젝트 상시 규칙, 미해결 현황 |
+| [archive/FE_DEVLOG_2026-06_07.md](docs/archive/FE_DEVLOG_2026-06_07.md) | 개발 일지 아카이브 (6~7월) |
+| [참고코드_모음.md](docs/참고코드_모음.md) | 나중에 쓸 코드 조각 (Riverpod 패턴 · Firestore Rules · 폴링 · 로딩 오버레이) |
 | [API_명세_협의_요청사항.md](docs/API_명세_협의_요청사항.md) | 백엔드 API 명세 협의 요청 목록 (FE → BE) |
 | [BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md) | Git 브랜치 운영 전략 |
 | [DESIGN.md](docs/DESIGN.md) | 디자인 가이드 (브랜드 컬러, 컴포넌트 규칙) |
 
 > 💡 문서는 **시제(時制)** 기준으로 나눠 관리합니다.
 > `FE_WORKFLOW` = 현재·미래(덮어씀) / `FE_DEVLOG` = 과거(append만)
+> 📦 DEVLOG 본문은 **직전 2개월분**만 유지하고, 그 이전은 월 단위로 `docs/archive/`로 옮깁니다.
 
 ---
 
