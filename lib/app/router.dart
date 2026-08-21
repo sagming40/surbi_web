@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
 import 'package:surbi_web/widgets/step4/score_shell.dart'; // ⭐ Phase 3 추가
 import 'package:surbi_web/views/region_select_page.dart';
+import 'package:surbi_web/views/explore_page.dart'; // 🚧 Phase 1 통합 화면
 import 'package:surbi_web/views/analysis_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/views/map_page.dart'; // ⭐ 새로 추가
 import 'package:surbi_web/widgets/step4/report_page.dart';
@@ -85,6 +86,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ResponsiveLayout(
           maxWidth: double.infinity,
           child: RegionSelectPage(),
+        ),
+      ),
+
+      // 🚧 통합 지도 화면 (Phase 1 작업 중 · 2026-08-21)
+      // Step 1·2·3을 하나로 합치는 8/21 회의 결정의 결과물.
+      // 완성되면 Phase 2에서 `/explore/:구?/:동?/:업종?` 형태로 바꾸고
+      // 위 `/select`와 아래 `/map`을 삭제한다. 그때까지는 셋 다 살아 있다 —
+      // 새 화면이 덜 됐을 때 기존 화면으로 시연할 수 있어야 하기 때문.
+      GoRoute(
+        path: '/explore',
+        builder: (context, state) => const ResponsiveLayout(
+          maxWidth: double.infinity,
+          child: ExplorePage(),
         ),
       ),
 

@@ -34,7 +34,8 @@ void registerKakaoMapView() {
     final div = web.HTMLDivElement()
       ..id = 'kakao-map-$viewId'
       ..style.width = '100%'
-      ..style.height = '100%';
+      ..style.height = '100%'
+      ..style.overflow = 'hidden'; // ⚠️ 아래 Step 1 지도 주석 참고 — 타일 넘침 방지
 
     // 망원동 근처 좌표를 임시 중심점으로 지도 생성
     final options = KakaoMapOptions(
@@ -267,7 +268,12 @@ void registerKakaoMapViewStep1() {
     final div = web.HTMLDivElement()
       ..id = 'kakao-map-step1-$viewId'
       ..style.width = '100%'
-      ..style.height = '100%';
+      ..style.height = '100%'
+      // ⚠️ 필수 — 카카오맵은 타일을 position:absolute로 깔아 컨테이너 밖으로 넘친다.
+      // 지도는 Flutter가 그린 그림이 아니라 진짜 브라우저 DOM(Platform View)이라,
+      // 넘친 부분이 옆에 있는 Flutter UI 위를 그대로 덮어버린다.
+      // (2026-08-21 — 통합 화면에서 지도가 좌측 패널·상단 바를 가린 사고)
+      ..style.overflow = 'hidden';
 
     // 생성 시점의 중심·레벨은 임시값이다. 이 시점엔 div가 아직 화면에 붙기 전이라
     // 크기가 0이고, 진짜 초기 화면은 아래 ResizeObserver에서 잡는다.
@@ -661,6 +667,42 @@ void setMapInteractiveStep1(bool enabled) {
   if (map == null) return;
   map.setDraggable(enabled);
   map.setZoomable(enabled);
+}
+
+// ── Step 1 지도 컨트롤 (2026-08-21 추가) ──────────────
+//
+// 위쪽 zoomIn/zoomOut/setMapSkyview는 업소 지도(kakaoMapInstance) 전용이라
+// Step 1 지도에서는 아무 반응이 없다. 통합 화면(explore_page)이 Step 1 지도를
+// 쓰므로 같은 동작을 이 인스턴스용으로 하나씩 더 둔다.
+//
+// ⚠️ Phase 2에서 지도 인스턴스가 하나로 합쳐지면 이 세 함수와 위쪽 세 함수가
+//    중복이 된다. 그때 `~Step1` 접미사를 떼는 일괄 리네임으로 정리할 것.
+//    지금 미리 일반화(지도를 인자로 받게)하면 호출부가 지도 인스턴스를 알아야
+//    해서, 화면이 registry 내부 사정을 알게 되는 구조가 된다.
+
+/// [Step 1] 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
+void zoomInStep1() {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+  final next = map.getLevel() - 1;
+  if (next < 1) return;
+  map.setLevel(next);
+}
+
+/// [Step 1] 줌 아웃
+void zoomOutStep1() {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+  final next = map.getLevel() + 1;
+  if (next > 14) return;
+  map.setLevel(next);
+}
+
+/// [Step 1] 일반 지도 ↔ 스카이뷰 전환
+void setMapSkyviewStep1(bool isSkyview) {
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return;
+  map.setMapTypeId(isSkyview ? kakaoMapTypeSkyview : kakaoMapTypeRoadmap);
 }
 
 // ─────────────────────────────────────────────

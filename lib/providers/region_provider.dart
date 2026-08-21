@@ -47,6 +47,31 @@ class RegionNotifier extends StateNotifier<RegionSelection> {
   void selectCategory(String categoryCode) {
     state = state.copyWith(categoryCode: categoryCode);
   }
+
+  // ── 선택 해제 (2026-08-21 추가) ──────────────────
+  //
+  // 통합 화면 상단 바의 '‹'는 화면을 나가는 버튼이 아니라 **선택을 한 단계
+  // 되돌려 시야를 넓히는** 버튼이다. 동이 있으면 동만, 구만 있으면 구까지 푼다.
+  //
+  // 업종은 두 경우 모두 유지한다 — 지역을 바꿔가며 같은 업종을 비교하는 것이
+  // 이 화면의 주 사용 패턴이고, 지역을 바꿀 때마다 업종이 풀리면 히트맵을
+  // 켠 채로 돌아다닐 수가 없다.
+  //
+  // copyWith를 쓰지 않는 이유는 selectGu와 같다 — 값을 의도적으로 null로
+  // 지워야 하는데 copyWith는 null을 "안 바꿈"으로 해석한다.
+
+  /// 동 선택만 해제 (구·업종은 유지)
+  void clearRegion() {
+    state = RegionSelection(
+      selectedGu: state.selectedGu,
+      categoryCode: state.categoryCode,
+    );
+  }
+
+  /// 구·동을 모두 해제 (업종은 유지) — 서울 전체 시야로 돌아감
+  void clearGu() {
+    state = RegionSelection(categoryCode: state.categoryCode);
+  }
 }
 
 final regionNotifierProvider =
