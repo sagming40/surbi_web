@@ -28,7 +28,11 @@ class AnalysisPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: SurbiColors.primary,
-      appBar: const SurbiAppBar(title: '상권 분석'),
+      appBar: SurbiAppBar(
+        title: '상권 분석',
+        // 뒤로 = 업소 지도. go 통일로 스택이 없으므로 목적지를 직접 지정
+        onBackPressed: () => context.go('/map/$regionCode/$categoryCode'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -310,7 +314,7 @@ class AnalysisPage extends ConsumerWidget {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () {
-          context.push('/score/$regionCode/$categoryCode');
+          context.go('/score/$regionCode/$categoryCode');
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: SurbiColors.accent,

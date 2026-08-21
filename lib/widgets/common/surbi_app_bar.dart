@@ -26,11 +26,12 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
         onPressed:
             onBackPressed ??
             () {
-              // ⭐ "뒤로 갈 곳이 있는지" 먼저 확인 후 이동
+              // ⚠️ 2026-08-21 — 화면 이동을 context.go로 통일하면서 스택이 쌓이지
+              // 않게 되어, 이 분기는 사실상 항상 아래쪽(/select)으로 간다.
+              // 상위 경로가 /select가 아닌 화면은 onBackPressed로 목적지를 직접 지정할 것.
               if (context.canPop()) {
                 context.pop();
               } else {
-                // 스택이 비어있으면(직접 URL 진입·새로고침 등) 안전한 기본 위치로
                 context.go('/select');
               }
             },

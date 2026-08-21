@@ -142,12 +142,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
               final districtCode = state.pathParameters['districtCode']!;
+              final categoryCode = state.pathParameters['categoryCode']!;
               return ResponsiveLayout(
                 maxWidth: 1200, // 2컬럼 레이아웃이라 기본 500보다 넓게
                 child: ScoreShell(
-                  // TODO(Phase 3): 파라미터명을 districtCode+categoryCode로 교체
+                  // TODO(Phase 3): buildingId → districtCode로 파라미터명 교체
                   // 지금은 buildingId 자리에 districtCode를 넘겨 동작만 유지
                   buildingId: districtCode,
+                  categoryCode: categoryCode,
                   navigationShell: navigationShell,
                 ),
               );

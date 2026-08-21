@@ -45,7 +45,7 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     onBusinessDetailTap = (business) {
       closeBusinessOverlay();
-      context.push('/analysis/$_currentRegionCode/${widget.categoryCode}');
+      context.go('/analysis/$_currentRegionCode/${widget.categoryCode}');
     };
 
     // URL의 :districtCode를 하단 바 초기 선택값으로 복원
@@ -152,11 +152,9 @@ class _MapPageState extends ConsumerState<MapPage> {
             InkWell(
               customBorder: const CircleBorder(),
               onTap: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/select');
-                }
+                // 화면 이동을 go로 통일했으므로 되돌아갈 스택이 없다.
+                // 각 화면이 자신의 상위 경로를 직접 지정한다 (딥링크·새로고침에도 동일 동작)
+                context.go('/select');
               },
               child: const Padding(
                 padding: EdgeInsets.all(8),
@@ -294,7 +292,7 @@ class _MapPageState extends ConsumerState<MapPage> {
               ElevatedButton(
                 onPressed: _selectedRegion == null
                     ? null
-                    : () => context.push(
+                    : () => context.go(
                         '/analysis/$_currentRegionCode/${widget.categoryCode}',
                       ),
                 style: ElevatedButton.styleFrom(

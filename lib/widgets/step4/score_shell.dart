@@ -9,11 +9,13 @@ import 'package:surbi_web/widgets/step4/score_hub_panel.dart';
 // StatefulShellRoute의 builder에서 반환됨 (Phase 2의 임시 화면을 대체)
 class ScoreShell extends StatelessWidget {
   final String buildingId;
+  final String categoryCode; // ⭐ 추가 — 뒤로가기 목적지(/analysis) 조립용
   final StatefulNavigationShell navigationShell;
 
   const ScoreShell({
     super.key,
     required this.buildingId,
+    required this.categoryCode,
     required this.navigationShell,
   });
 
@@ -23,26 +25,13 @@ class ScoreShell extends StatelessWidget {
       appBar: SurbiAppBar(
         title: 'AI 창업 분석',
         onBackPressed: () {
+          // 다음에 다시 들어올 때 보고서 탭부터 시작하도록 초기화
           if (navigationShell.currentIndex != 0) {
             navigationShell.goBranch(0);
-            // ⭐ goBranch는 다음 프레임에 반영되므로, 화면이 실제로 바뀐 후에
-            // canPop을 확인해야 정확한 값을 얻을 수 있음
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/select');
-                }
-              }
-            });
-          } else {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/select');
-            }
           }
+          // 뒤로 = 상권 분석. go 통일로 스택이 없으므로 목적지를 직접 지정
+          // (기존의 canPop + postFrameCallback 분기는 불필요해져 제거)
+          context.go('/analysis/$buildingId/$categoryCode');
         },
       ),
       body: LayoutBuilder(
