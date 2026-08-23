@@ -11,8 +11,25 @@ import 'kakao_map_interop.dart'; // 추가!
 import 'package:surbi_web/models/business.dart';
 import 'package:surbi_web/models/region.dart'; // ⭐ 추가
 
-// ⬇️ 추가 — 지도 객체 전역 변수
-KakaoMap? kakaoMapInstance;
+// ═══════════════════════════════════════════════════════════
+// 2026-08-23 · Phase 2-B — 지도 인스턴스 일원화
+//
+// 전에는 지도가 **두 개**였다.
+//   kakaoMapInstance       ← /map (업소 지도)   · 'kakao-map-view'
+//   kakaoMapInstanceStep1  ← /explore (통합)   · 'kakao-map-view-step1'
+//
+// 그래서 같은 일을 하는 함수가 쌍으로 존재했다 — zoomIn/zoomInStep1처럼.
+// 화면을 하나로 합치면서 옛 지도와 그 짝들을 전부 걷어냈다:
+//   registerKakaoMapView · moveToRegion · zoomIn/zoomOut/setMapSkyview
+//   setMapInteractive · drawRegionBoundary · _regionPolygon · _selectedRegionMarker
+//
+// 업소 마커·카드 기능은 **살렸다.** 보는 지도만 남은 쪽으로 바꿔 끼웠고,
+// Phase 2-D에서 통합 화면이 그대로 호출한다.
+//
+// ⚠️ 이름에 아직 `Step1`이 붙어 있다. Step이 하나로 합쳐졌으니 이제 거짓말이지만,
+//    이름 변경은 Phase 2-B-3에서 **따로** 한다 — 기능 변경과 이름 변경이 한
+//    커밋에 섞이면 diff에서 진짜 변경을 못 찾는다.
+// ═══════════════════════════════════════════════════════════
 
 // ⬇️ 추가 — 마커 Tap시 바깥에서 실행할 함수
 void Function(Business business)? onBusinessMarkerTap;
@@ -26,51 +43,17 @@ KakaoCustomOverlay? _activeOverlay;
 // ⬇️ 추가 — 그 카드가 "어떤 업소"의 카드인지 같이 기억
 Business? _activeOverlayBusiness;
 
-/// Step 3 지도 화면에서 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
-/// main() 앱 시작할 때 딱 한 번만 호출하면 됨
-void registerKakaoMapView() {
-  ui_web.platformViewRegistry.registerViewFactory('kakao-map-view', (
-    int viewId,
-  ) {
-    final div = web.HTMLDivElement()
-      ..id = 'kakao-map-$viewId'
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..style.overflow = 'hidden'; // ⚠️ 아래 Step 1 지도 주석 참고 — 타일 넘침 방지
-
-    // 망원동 근처 좌표를 임시 중심점으로 지도 생성
-    final options = KakaoMapOptions(
-      center: KakaoLatLng(37.5563, 126.9013),
-      level: 4,
-    );
-    final map = KakaoMap(div, options); // ⬅️ 변수 선언
-    kakaoMapInstance = map; // ⬅️ 전역 변수에 지도 저장
-
-    // ⭐ 추가 — 지도의 빈 곳을 클릭하면 떠있는 카드를 닫음
-    kakaoAddListener(
-      map,
-      'click',
-      (() {
-        closeBusinessOverlay();
-      }).toJS,
-    );
-
-    // ⬇️ div 크기가 바뀔 때마다 map.relayout() 자동 호출
-    final observer = web.ResizeObserver(
-      ((JSArray<JSAny?> entries, web.ResizeObserver obs) {
-        map.relayout();
-      }).toJS,
-    );
-    observer.observe(div);
-
-    return div;
-  });
-}
-
 // ⬇️ 업소 목록을 받아서 마커로 찍어주는 함수
 // 2026-08-16 Phase 3 — Building(건물) → Business(업소) 재정의
+//
+// ⚠️ 2026-08-23 Phase 2-B — 지금은 **아무도 부르지 않는다.**
+//    쓰던 화면(`/map`)이 사라졌고, 통합 화면에서 다시 쓰는 것은 Phase 2-D다.
+//    지우지 않는 이유: 마커 hover 확대·클릭·카드 띄우기가 이미 다 되어 있어
+//    Phase 2-D는 "이 함수를 부르는 것"만 하면 된다.
+//    그때 손볼 것 → 화면 맞추기(setBounds)는 이미 동 경계에 맞춰둔 카메라와
+//    충돌하므로 옵션으로 빼야 하고, 300ms 대기도 불필요해진다.
 Future<void> addBusinessMarkers(List<Business> businesses) async {
-  final map = kakaoMapInstance;
+  final map = kakaoMapInstanceStep1;
   if (map == null) return; // 지도가 아직 안 만들어졌으면 그냥 종료 (방어 코드)
   if (businesses.isEmpty) return; // 업소가 하나도 없으면 그냥 종료 (방어 코드)
 
@@ -136,7 +119,7 @@ Future<void> addBusinessMarkers(List<Business> businesses) async {
 
 // ⬇️ 마커 탭하면 이 함수가 호출되어 지도 위에 카드를 얹음
 void showBusinessOverlay(Business business) {
-  final map = kakaoMapInstance;
+  final map = kakaoMapInstanceStep1;
   if (map == null) return; // 방어 코드
 
   // ⭐ 이미 열려있는 카드가 "지금 누른 그 업소"면, 새로 열지 말고 그냥 닫기
@@ -242,7 +225,7 @@ String _pinDataUri({required double size, required String color}) {
   return 'data:image/svg+xml,${Uri.encodeComponent(svg)}';
 }
 
-// ⬇️ 추가 — Step1 지도 인스턴스 (Step3의 kakaoMapInstance와 별개로 관리)
+/// 앱 전체에서 단 하나뿐인 지도 객체 (2026-08-23 일원화 — 파일 상단 주석 참고)
 KakaoMap? kakaoMapInstanceStep1;
 
 /// 지도가 실제 크기를 잡은 뒤 초기 화면(서울 전역 경계)을 한 번 그렸는지 여부.
@@ -284,6 +267,16 @@ void registerKakaoMapViewStep1() {
     );
     final map = KakaoMap(div, options);
     kakaoMapInstanceStep1 = map;
+
+    // 지도의 빈 곳을 클릭하면 떠 있는 업소 카드를 닫는다.
+    // (삭제된 옛 지도 등록부에 있던 것을 옮겨왔다 — 2026-08-23)
+    kakaoAddListener(
+      map,
+      'click',
+      (() {
+        closeBusinessOverlay();
+      }).toJS,
+    );
 
     final observer = web.ResizeObserver(
       ((JSArray<JSAny?> entries, web.ResizeObserver obs) {
@@ -394,71 +387,6 @@ Future<void> addRegionMarkers(
 // ② 업소 지도 — 행정동 이동 / 지도 컨트롤 (2026-08-19 회의 반영)
 // ─────────────────────────────────────────────
 
-// 지금 선택된 행정동을 표시하는 강조 마커 (항상 1개만 유지)
-KakaoMarker? _selectedRegionMarker;
-
-/// 드롭다운에서 동을 고르면 지도 중심을 그쪽으로 옮기고 강조 마커를 찍음
-///
-/// [moveCamera] false면 마커만 찍고 카메라(중심·줌)는 건드리지 않는다.
-/// 경계 폴리곤이 setBounds로 이미 화면을 맞춘 경우 카메라가 두 번 움직이는 걸 막기 위함.
-Future<void> moveToRegion(
-  Region region, {
-  int level = 4,
-  bool moveCamera = true, // ⭐ 2026-08-20 추가
-}) async {
-  final map = kakaoMapInstance;
-  if (map == null) return;
-
-  final position = KakaoLatLng(region.lat, region.lng);
-
-  // 이전 강조 마커 제거 (업소 마커는 건드리지 않음)
-  _selectedRegionMarker?.setMap(null);
-
-  // ⚠️ 임시 강조색 — 디자인 확정 시 theme.dart로 이관 예정
-  final marker = KakaoMarker(
-    KakaoMarkerOptions(
-      position: position,
-      image: KakaoMarkerImage(
-        _pinDataUri(size: 42, color: '#F2994A'),
-        KakaoSize(42, 53),
-      ),
-    ),
-  );
-  marker.setMap(map);
-  _selectedRegionMarker = marker;
-
-  // ⭐ 폴리곤이 이미 화면을 맞췄으면(moveCamera=false) 카메라는 손대지 않음
-  if (moveCamera) {
-    map.setLevel(level);
-    map.panTo(position);
-  }
-}
-
-/// 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
-void zoomIn() {
-  final map = kakaoMapInstance;
-  if (map == null) return;
-  final next = map.getLevel() - 1;
-  if (next < 1) return;
-  map.setLevel(next);
-}
-
-/// 줌 아웃
-void zoomOut() {
-  final map = kakaoMapInstance;
-  if (map == null) return;
-  final next = map.getLevel() + 1;
-  if (next > 14) return;
-  map.setLevel(next);
-}
-
-/// 일반 지도 ↔ 스카이뷰 전환
-void setMapSkyview(bool isSkyview) {
-  final map = kakaoMapInstance;
-  if (map == null) return;
-  map.setMapTypeId(isSkyview ? kakaoMapTypeSkyview : kakaoMapTypeRoadmap);
-}
-
 // ─────────────────────────────────────────────
 // ③ 행정동 경계 폴리곤 (2026-08-20 추가)
 //
@@ -472,9 +400,8 @@ void setMapSkyview(bool isSkyview) {
 /// 앱 실행 중 딱 한 번만 파일을 읽어 캐시에 올리고 계속 재사용(메모이제이션)
 Map<String, List<KakaoLatLng>>? _boundaryCache;
 
-/// 지금 지도에 그려져 있는 경계 폴리곤 (지도별로 항상 1개만 유지)
-KakaoPolygon? _regionPolygon; // 업소 지도(kakaoMapInstance)용
-KakaoPolygon? _regionPolygonStep1; // Step 1 지도(kakaoMapInstanceStep1)용
+/// 지금 지도에 그려져 있는 선택 동 경계 폴리곤 (항상 1개만 유지)
+KakaoPolygon? _regionPolygonStep1;
 
 /// 자치구명 → 경계 좌표 배열 (초기 화면용). 동 경계와 같은 방식으로 캐시한다.
 Map<String, List<KakaoLatLng>>? _guBoundaryCache;
@@ -604,18 +531,6 @@ Future<KakaoPolygon?> _renderBoundary(
   }
 
   return polygon;
-}
-
-/// [업소 지도] 선택된 행정동의 경계를 그리고 화면을 그 영역에 맞춤
-///
-/// 반환값 true  = 폴리곤을 그렸음 (카메라도 setBounds로 맞춰짐)
-/// 반환값 false = 경계 데이터가 없어 못 그림 → 호출한 쪽이 기존 방식으로 폴백해야 함
-Future<bool> drawRegionBoundary(Region region) async {
-  // 이전 폴리곤 제거 (업소 마커·강조 핀은 건드리지 않음)
-  _regionPolygon?.setMap(null);
-  // 이 화면에는 밑칠이 없다 → 기본값(0.15 / 3px) 그대로
-  _regionPolygon = await _renderBoundary(kakaoMapInstance, region);
-  return _regionPolygon != null;
 }
 
 /// 주황 경계도 대기표가 필요하다 — 자세한 이유는 [_paintGeneration] 주석 참고
@@ -888,14 +803,6 @@ Future<void> focusRegionStep1(Region region) async {
 /// 휠·드래그 이벤트는 아래쪽 지도 DOM에도 함께 전달돼 지도가 같이 움직였다.
 /// Task 3-3·7/20에서 겪은 "두 렌더링 세계가 서로를 모른다" 문제의 이벤트 버전.
 /// 이벤트 흐름을 역추적하는 대신 카카오맵이 제공하는 전용 함수로 정면 차단한다.
-void setMapInteractive(bool enabled) {
-  final map = kakaoMapInstance;
-  if (map == null) return;
-  map.setDraggable(enabled);
-  map.setZoomable(enabled);
-}
-
-/// [Step 1] 지도의 드래그·휠 확대축소를 켜고 끔 — Step 1은 지도 인스턴스가 별개라 별도 함수
 void setMapInteractiveStep1(bool enabled) {
   final map = kakaoMapInstanceStep1;
   if (map == null) return;
@@ -934,16 +841,11 @@ void clearStep1MapLocks() {
   setMapInteractiveStep1(true);
 }
 
-// ── Step 1 지도 컨트롤 (2026-08-21 추가) ──────────────
+// ── 지도 컨트롤 ──────────────────────────────────────
 //
-// 위쪽 zoomIn/zoomOut/setMapSkyview는 업소 지도(kakaoMapInstance) 전용이라
-// Step 1 지도에서는 아무 반응이 없다. 통합 화면(explore_page)이 Step 1 지도를
-// 쓰므로 같은 동작을 이 인스턴스용으로 하나씩 더 둔다.
-//
-// ⚠️ Phase 2에서 지도 인스턴스가 하나로 합쳐지면 이 세 함수와 위쪽 세 함수가
-//    중복이 된다. 그때 `~Step1` 접미사를 떼는 일괄 리네임으로 정리할 것.
-//    지금 미리 일반화(지도를 인자로 받게)하면 호출부가 지도 인스턴스를 알아야
-//    해서, 화면이 registry 내부 사정을 알게 되는 구조가 된다.
+// 2026-08-21에는 이것과 똑같은 함수가 옛 지도용으로 하나씩 더 있었다
+// (zoomIn / zoomOut / setMapSkyview). 2026-08-23 일원화로 그쪽을 걷어내
+// 지금은 이 셋만 남았다 — 예고했던 정리를 실제로 한 것이다.
 
 /// [Step 1] 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
 void zoomInStep1() {
