@@ -72,6 +72,33 @@ class RegionNotifier extends StateNotifier<RegionSelection> {
   void clearGu() {
     state = RegionSelection(categoryCode: state.categoryCode);
   }
+
+  /// 세 값을 **한 번에** 맞춘다 — 주소(URL)에서 읽은 선택이 들어오는 통로
+  /// (2026-08-23 · Phase 2-A)
+  ///
+  /// 하나씩 넣지 않는 이유:
+  ///   ① `selectGu`는 동을 지우고 `selectRegion`은 구를 건드리지 않는다 —
+  ///      순서를 잘못 부르면 방금 넣은 값이 지워진다.
+  ///   ② 상태가 세 번 바뀌면 지도도 세 번 다시 그려진다.
+  ///
+  /// 값이 이미 같으면 **아무것도 하지 않는다.** 이 가드가 없으면
+  /// `URL → 상태 → URL → 상태 …`로 끝없이 돈다.
+  void applySelection({
+    String? guName,
+    String? regionCode,
+    String? categoryCode,
+  }) {
+    if (state.selectedGu == guName &&
+        state.regionCode == regionCode &&
+        state.categoryCode == categoryCode) {
+      return;
+    }
+    state = RegionSelection(
+      selectedGu: guName,
+      regionCode: regionCode,
+      categoryCode: categoryCode,
+    );
+  }
 }
 
 final regionNotifierProvider =
@@ -87,6 +114,30 @@ final regionListProvider = Provider<List<Region>>((ref) {
 final guNameListProvider = Provider<List<String>>((ref) {
   final regions = ref.watch(regionListProvider);
   return regions.map((r) => r.guName).toSet().toList();
+});
+
+// ── 구 코드 ↔ 구 이름 (2026-08-23 · Phase 2-A) ────────────────
+//
+// 주소에는 **코드**를 쓰고(`/explore/11680`), 화면에는 **이름**을 쓴다
+// ('강남구'). 그 사이를 오갈 표가 필요하다.
+//
+// 표를 손으로 적지 않는다 — 행정동 코드 8자리의 **앞 5자리가 곧 구 코드**라
+// 기존 목록에서 잘라 모으면 끝이다. 손으로 적으면 동이 늘거나 개편될 때
+// 반드시 어긋난다. (미해결 5번 — 팀 DB 427개 vs 우리 425개)
+//
+// ⚠️ 한글을 주소에 넣지 않는 이유이기도 하다. '강남구'를 그대로 쓰면
+//    `%EA%B0%95%EB%82%A8%EA%B5%AC`가 되어 링크를 읽을 수 없다.
+
+/// '11680' → '강남구' (주소를 읽을 때)
+final guCodeToNameProvider = Provider<Map<String, String>>((ref) {
+  final regions = ref.watch(regionListProvider);
+  return {for (final r in regions) r.regionCode.substring(0, 5): r.guName};
+});
+
+/// '강남구' → '11680' (주소를 만들 때)
+final guNameToCodeProvider = Provider<Map<String, String>>((ref) {
+  final regions = ref.watch(regionListProvider);
+  return {for (final r in regions) r.guName: r.regionCode.substring(0, 5)};
 });
 
 /// 선택된 구에 속한 동(Region)만 필터링해서 반환

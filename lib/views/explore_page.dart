@@ -154,11 +154,90 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     return null;
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 주소(URL) ↔ 선택 상태  — 2026-08-23 · Phase 2-A
+  //
+  // **주소가 진실이고, RegionSelection은 그 사본이다.**
+  //
+  // 전에는 선택을 `notifier`에만 담아서, 새로고침하면 날아가고 링크로
+  // 공유할 수도 없었다. 브라우저 뒤로가기는 주소만 바꾸는데 상태는 그걸
+  // 모르니 화면과 주소가 어긋나기도 했다.
+  //
+  // 그래서 흐름을 한 방향으로 못박는다:
+  //   사용자 조작 → context.go(주소) → 주소가 바뀜 → [_syncSelectionFromUrl]
+  //                                   → notifier 갱신 → 화면·지도
+  //
+  // F5·뒤로가기·붙여넣은 링크도 전부 "주소가 바뀜" 지점으로 들어오므로
+  // 따로 처리할 것이 없다. 패널·상단 바는 여전히 notifier만 읽으면 된다.
+  // ═══════════════════════════════════════════════════════════
+
+  /// 주소에서 읽은 선택을 상태에 반영한다. `build`에서 매번 호출된다.
+  void _syncSelectionFromUrl(RegionSelection current) {
+    final params = GoRouterState.of(context).pathParameters;
+    final districtCode = params['districtCode'];
+    final categoryCode = params['categoryCode'];
+
+    // 코드 길이가 곧 의미다 — 5자리는 구, 8자리는 동.
+    // (행정안전부 행정구역 코드가 원래 계층 구조라 앞 5자리가 자치구다)
+    String? guName;
+    String? regionCode;
+    if (districtCode != null && districtCode.length >= 5) {
+      guName = ref.read(guCodeToNameProvider)[districtCode.substring(0, 5)];
+      if (districtCode.length == 8) regionCode = districtCode;
+    }
+
+    if (current.selectedGu == guName &&
+        current.regionCode == regionCode &&
+        current.categoryCode == categoryCode) {
+      return; // 이미 같다 — 건드리면 무한 루프가 된다
+    }
+
+    // ⚠️ `build` 도중에 상태를 바꾸면 Riverpod이 예외를 던진다
+    //    ("Tried to modify a provider while the widget tree was building").
+    //    이번 프레임을 다 그린 뒤로 미룬다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(regionNotifierProvider.notifier)
+          .applySelection(
+            guName: guName,
+            regionCode: regionCode,
+            categoryCode: categoryCode,
+          );
+    });
+  }
+
+  /// 선택 조합을 주소 문자열로 만든다. 이 화면의 모든 이동은 여기를 거친다.
+  String _pathFor({String? guName, String? regionCode, String? categoryCode}) {
+    if (guName == null) return '/explore'; // 서울 전체
+
+    final guCode = ref.read(guNameToCodeProvider)[guName];
+    if (guCode == null) return '/explore'; // 있을 수 없지만 방어
+
+    // 동이 정해졌으면 8자리, 아니면 구 5자리
+    final districtCode = regionCode ?? guCode;
+    if (categoryCode == null) return '/explore/$districtCode';
+    return '/explore/$districtCode/$categoryCode';
+  }
+
   /// `‹` 동작 — 선택을 한 단계 되돌린다. 되돌릴 게 없으면 null(비활성).
+  ///
+  /// 업종은 두 경우 모두 유지한다 — 지역을 바꿔가며 같은 업종을 비교하는 것이
+  /// 이 화면의 주 사용 패턴이다.
   VoidCallback? _stepBackAction(RegionSelection selection) {
-    final notifier = ref.read(regionNotifierProvider.notifier);
-    if (selection.regionCode != null) return notifier.clearRegion; // 동 → 구
-    if (selection.selectedGu != null) return notifier.clearGu; // 구 → 서울
+    if (selection.regionCode != null) {
+      // 동 → 구
+      return () => context.go(
+        _pathFor(
+          guName: selection.selectedGu,
+          categoryCode: selection.categoryCode,
+        ),
+      );
+    }
+    if (selection.selectedGu != null) {
+      // 구 → 서울. 업종만 남기고 지역을 다 푸는 주소는 없으므로 루트로 간다.
+      return () => context.go('/explore');
+    }
     return null;
   }
 
@@ -166,6 +245,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   Widget build(BuildContext context) {
     final guNameList = ref.watch(guNameListProvider);
     final selection = ref.watch(regionNotifierProvider);
+
+    // 주소가 진실이다 — 화면을 그리기 전에 상태를 주소에 맞춘다.
+    // (F5·뒤로가기·링크 진입도 전부 여기로 들어온다)
+    _syncSelectionFromUrl(selection);
+
     final regionsInGu = ref.watch(regionsByGuProvider(selection.selectedGu));
     final selectedRegion = _findSelectedRegion(
       regionsInGu,
@@ -216,13 +300,25 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               selectedRegion: selectedRegion,
               onStepBack: _stepBackAction(selection),
               onMenuVisibilityChanged: _lockMapWhileMenuOpen,
+              // 상태를 직접 바꾸지 않고 **주소만 바꾼다.**
+              // 상태는 주소를 보고 따라온다 (_syncSelectionFromUrl).
               onGuChanged: (guName) {
-                ref.read(regionNotifierProvider.notifier).selectGu(guName);
+                // 구를 바꾸면 이전 동은 무효 — regionCode를 넘기지 않는다
+                context.go(
+                  _pathFor(
+                    guName: guName,
+                    categoryCode: selection.categoryCode,
+                  ),
+                );
               },
               onRegionChanged: (region) {
-                ref
-                    .read(regionNotifierProvider.notifier)
-                    .selectRegion(region.regionCode);
+                context.go(
+                  _pathFor(
+                    guName: region.guName,
+                    regionCode: region.regionCode,
+                    categoryCode: selection.categoryCode,
+                  ),
+                );
               },
             ),
             Expanded(
@@ -407,15 +503,24 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
       onStepBack: onStepBack,
       onHandleTap: _toggleSheet,
       onMenuVisibilityChanged: _lockMapWhileMenuOpen,
+      // 상단 바와 마찬가지로 **주소만 바꾼다** — 상태는 주소를 따라온다
       onRegionTap: (region) {
-        ref
-            .read(regionNotifierProvider.notifier)
-            .selectRegion(region.regionCode);
+        context.go(
+          _pathFor(
+            guName: region.guName,
+            regionCode: region.regionCode,
+            categoryCode: selection.categoryCode,
+          ),
+        );
       },
       onCategoryChanged: (category) {
-        ref
-            .read(regionNotifierProvider.notifier)
-            .selectCategory(category['code']!);
+        context.go(
+          _pathFor(
+            guName: selection.selectedGu,
+            regionCode: selection.regionCode,
+            categoryCode: category['code'],
+          ),
+        );
       },
       // 동과 업종이 모두 정해져야 점수를 볼 수 있다
       onScoreTap:

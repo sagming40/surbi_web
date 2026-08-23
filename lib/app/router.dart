@@ -39,6 +39,25 @@ class PlaceholderPage extends StatelessWidget {
   }
 }
 
+/// 통합 지도 화면의 세 경로가 **같은 화면**임을 Navigator에 알려주는 페이지.
+///
+/// `key`를 같게 주는 것이 핵심이다. 이게 없으면 `/explore` → `/explore/11680`
+/// 이동이 "다른 페이지로 갈아타기"로 처리돼 화면이 통째로 다시 만들어진다.
+/// 그러면 지도(Platform View)가 새로 생성되면서 깜빡이고, 경계 폴리곤도
+/// 처음부터 다시 그린다 — 주소만 바뀌었을 뿐인데.
+///
+/// > 호텔 방 번호표와 같다. 번호가 같으면 **같은 방에서 가구만 바꾸는 것**이고,
+/// > 다르면 짐을 싸서 옆방으로 옮기는 것이다.
+///
+/// [NoTransitionPage]인 이유: 같은 화면 안에서 선택만 바뀌는데 전환
+/// 애니메이션이 끼면 지도가 미끄러지듯 움직여 오히려 어지럽다.
+Page<dynamic> _explorePage(BuildContext context, GoRouterState state) {
+  return const NoTransitionPage(
+    key: ValueKey('explore'),
+    child: ResponsiveLayout(maxWidth: double.infinity, child: ExplorePage()),
+  );
+}
+
 final _reportNavigatorKey = GlobalKey<NavigatorState>();
 final _policiesNavigatorKey = GlobalKey<NavigatorState>();
 final _checklistNavigatorKey = GlobalKey<NavigatorState>();
@@ -89,17 +108,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // 🚧 통합 지도 화면 (Phase 1 작업 중 · 2026-08-21)
+      // 🚧 통합 지도 화면 (Phase 2-A · 2026-08-23)
       // Step 1·2·3을 하나로 합치는 8/21 회의 결정의 결과물.
-      // 완성되면 Phase 2에서 `/explore/:구?/:동?/:업종?` 형태로 바꾸고
-      // 위 `/select`와 아래 `/map`을 삭제한다. 그때까지는 셋 다 살아 있다 —
-      // 새 화면이 덜 됐을 때 기존 화면으로 시연할 수 있어야 하기 때문.
+      // Phase 2-B에서 위 `/select`와 아래 `/map`을 삭제한다. 그때까지는 셋 다
+      // 살아 있다 — 새 화면이 덜 됐을 때 기존 화면으로 시연할 수 있어야 하기 때문.
+      //
+      // ── 경로가 곧 선택 상태다 (2026-08-23) ────────────────
+      //   /explore                        → 서울 전체
+      //   /explore/11680                  → 강남구      (5자리 = 구)
+      //   /explore/11680510               → 신사동      (8자리 = 동)
+      //   /explore/11680510/CS100007      → + 치킨전문점
+      //
+      // 구·동을 코드 길이로 가르는 것은 우리가 만든 규칙이 아니라
+      // **행정안전부 행정구역 코드 체계**가 원래 계층이기 때문이다
+      // (앞 5자리 = 자치구, 8자리 전체 = 행정동).
+      //
+      // 셋을 따로 쓰지 않고 [_explorePage] 하나로 만드는 이유는 아래 주석 참고.
+      GoRoute(path: '/explore', pageBuilder: _explorePage),
+      GoRoute(path: '/explore/:districtCode', pageBuilder: _explorePage),
       GoRoute(
-        path: '/explore',
-        builder: (context, state) => const ResponsiveLayout(
-          maxWidth: double.infinity,
-          child: ExplorePage(),
-        ),
+        path: '/explore/:districtCode/:categoryCode',
+        pageBuilder: _explorePage,
       ),
 
       // ② 업소 지도 — 선택한 동네의 경쟁 업소 분포 확인
