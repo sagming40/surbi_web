@@ -618,6 +618,9 @@ Future<bool> drawRegionBoundary(Region region) async {
   return _regionPolygon != null;
 }
 
+/// 주황 경계도 대기표가 필요하다 — 자세한 이유는 [_paintGeneration] 주석 참고
+int _regionPolygonGeneration = 0;
+
 /// [Step 1] 선택된 행정동의 경계를 강조하고 **그 동에 카메라를 맞춘다**
 ///
 /// 2026-08-20에는 `fitBounds: false`(구 전체 시야 유지)였다. 근거는
@@ -632,15 +635,27 @@ Future<bool> drawRegionBoundary(Region region) async {
 /// ⚠️ 확대와 복귀는 **한 쌍**이다. 이 함수만 켜고 복귀를 안 만들면,
 ///    동을 해제해도 지도가 확대된 채 남아 목록과 지도가 어긋난다.
 Future<bool> drawRegionBoundaryStep1(Region region) async {
-  _regionPolygonStep1?.setMap(null);
-  // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
-  _regionPolygonStep1 = await _renderBoundary(
+  final generation = ++_regionPolygonGeneration;
+
+  // ⚠️ **먼저 그리고 나중에 바꿔 끼운다.** 예전처럼 지우기를 await 앞에 두면,
+  //    두 호출이 겹칠 때 서로 빈 자리를 지우고 각자 폴리곤을 남겨
+  //    주황 경계가 지도에 영구히 붙어버린다. (_paintBoundaries와 같은 사고)
+  final polygon = await _renderBoundary(
     kakaoMapInstanceStep1,
     region,
+    // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
     fillOpacity: 0.35,
     strokeWeight: 4,
     fitBounds: true, // ⭐ 2026-08-23 — 선택한 동에 맞춰 확대
   );
+
+  if (generation != _regionPolygonGeneration) {
+    polygon?.setMap(null); // 늦게 도착 — 내가 만든 것만 치우고 물러난다
+    return false;
+  }
+
+  _regionPolygonStep1?.setMap(null);
+  _regionPolygonStep1 = polygon;
   return _regionPolygonStep1 != null;
 }
 
@@ -706,24 +721,38 @@ KakaoMarkerImage _ensureDotMarkerImage() {
 }
 
 /// 뿌려둔 점을 전부 지운다 — 안 지우면 동을 바꿀수록 점이 쌓인다
+///
+/// **지우기도 대기표를 갱신한다.** 그리는 도중에 동을 해제하면, 지운 뒤에
+/// 뒤늦게 끝난 그리기가 점을 다시 얹어버린다. 번호를 올려두면 그 요청이
+/// 스스로 물러난다.
 void clearBusinessDotsStep1() {
+  _dotGeneration++;
   for (final marker in _businessDotsStep1) {
     marker.setMap(null);
   }
   _businessDotsStep1 = [];
 }
 
+/// 이 함수도 [_paintBoundaries]와 같은 이유로 대기표가 필요하다 —
+/// `_ensureBoundaryLoaded()`를 기다리는 사이 다른 동이 선택될 수 있다.
+int _dotGeneration = 0;
+
 /// 선택한 동의 경계 **안쪽에만** 샘플 점을 뿌린다. 반환값 = 실제로 찍은 개수.
 Future<int> drawSampleBusinessDotsStep1(
   Region region, {
   int count = kSampleBusinessesPerDong,
 }) async {
-  clearBusinessDotsStep1();
-
   final map = kakaoMapInstanceStep1;
   if (map == null) return 0;
 
+  final generation = ++_dotGeneration;
+
   await _ensureBoundaryLoaded();
+  if (generation != _dotGeneration) return 0; // 더 새로운 요청이 왔다
+
+  // 지우기는 대기 뒤에 — 대기 전에 지우면 상대가 그린 점을 못 지운다
+  clearBusinessDotsStep1();
+
   final path = _boundaryCache?[region.regionCode];
   if (path == null) return 0; // 경계 없는 동 — 뿌릴 범위를 모른다
 
@@ -1031,6 +1060,27 @@ void _clearGuPolygons() {
   _guPolygonsStep1 = [];
 }
 
+// ── 겹쳐 그리기 사고 방지 (2026-08-23) ──────────────────────────
+//
+// 이 함수는 안에서 `await` 하기 때문에 **끝나기 전에 또 불릴 수 있다.**
+// 실제로 2-A에서 URL 동기화가 들어오면서 두 경로가 동시에 지도를 그리게 됐다:
+//   ① URL 변경 → 상태 변경 → ref.listen → showGuOnStep1
+//   ② 지도 준비 완료 → onStep1MapReady → _syncMapToSelection → showGuOnStep1
+//
+// 예전 코드는 "지우기 → 300ms 대기 → 그리기" 순서였는데, 둘 다 **지우기를
+// 대기 전에** 끝내버려서 서로의 폴리곤을 못 지웠다.
+// (증상: 강남구 22개가 로그에 44개로 찍힘 — 눈에는 안 보이고 수치만 왜곡)
+//
+// 해법은 **대기표**다. 들어올 때 번호를 뽑고, 기다렸다 깨어났을 때
+// 내 번호가 아직 최신인지 확인한다. 아니면 그냥 물러난다 — 늦게 온 요청이 이긴다.
+//
+// > 은행 대기표와 같다. 306번을 뽑고 자리를 비웠는데 전광판이 312번이면
+// > 내 차례는 지나간 것이다.
+//
+// ⚠️ 일반 규칙: **`await` 앞뒤로 공유 상태를 건드리는 비동기 함수는
+//    반드시 이 가드가 필요하다.** 앞으로도 계속 만날 패턴이다.
+int _paintGeneration = 0;
+
 /// 경계 좌표 목록을 받아 폴리곤을 한꺼번에 그린다 (자치구·행정동 공용)
 ///
 /// 좌표 배열만 받고 **어느 캐시에서 왔는지는 모른다.** 그리는 방식이 두 경우
@@ -1047,12 +1097,20 @@ Future<void> _paintBoundaries(
   final map = kakaoMapInstanceStep1;
   if (map == null) return;
 
-  _clearGuPolygons();
+  // 대기표를 뽑는다 (2026-08-23 — 아래 '겹쳐 그리기 사고' 주석 참고)
+  final generation = ++_paintGeneration;
 
   // 지도 컨테이너가 실제 크기를 잡을 시간을 벌어줌.
   // 이걸 빼면 첫 진입 때 setBounds가 0×0 크기 기준으로 계산돼 화면이 엉뚱한 데를 비춘다.
   // (계측을 오염시키지 않도록 Stopwatch 시작 전에 처리)
   await Future.delayed(const Duration(milliseconds: 300));
+
+  // 기다리는 사이 더 새로운 요청이 왔다면 조용히 물러난다
+  if (generation != _paintGeneration) return;
+
+  // ⚠️ 지우기는 반드시 **기다린 뒤**에 한다. 대기 전에 지우면 아직 아무도
+  //    안 그린 빈 리스트를 지우게 되고, 정작 상대가 그린 폴리곤은 남는다.
+  _clearGuPolygons();
   map.relayout();
 
   // ⏱️ 파일 읽기·파싱은 파일당 1회뿐이라 호출부에서 따로 재 [loadMs]로 넘겨받는다.
