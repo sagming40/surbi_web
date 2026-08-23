@@ -14,21 +14,23 @@ import 'package:surbi_web/models/region.dart'; // ⭐ 추가
 // ═══════════════════════════════════════════════════════════
 // 2026-08-23 · Phase 2-B — 지도 인스턴스 일원화
 //
-// 전에는 지도가 **두 개**였다.
-//   kakaoMapInstance       ← /map (업소 지도)   · 'kakao-map-view'
-//   kakaoMapInstanceStep1  ← /explore (통합)   · 'kakao-map-view-step1'
+// 이 파일에는 2026-08-23까지 지도가 **두 개** 있었다.
+//   · 업소 지도  — `/map` 화면용
+//   · Step 1 지도 — `/explore`(통합 화면)용
 //
-// 그래서 같은 일을 하는 함수가 쌍으로 존재했다 — zoomIn/zoomInStep1처럼.
-// 화면을 하나로 합치면서 옛 지도와 그 짝들을 전부 걷어냈다:
-//   registerKakaoMapView · moveToRegion · zoomIn/zoomOut/setMapSkyview
-//   setMapInteractive · drawRegionBoundary · _regionPolygon · _selectedRegionMarker
+// 그래서 같은 일을 하는 함수가 늘 쌍으로 존재했다.
+// 이름 뒤에 `Step1`을 붙여 구분했는데, `zoomIn`과 `zoomInStep1`처럼
+// **어느 쪽을 불러야 하는지 호출부가 알아야 하는** 구조였다.
+//
+// 화면을 하나로 합치면서 옛 지도와 그 짝을 전부 걷어냈다.
+// (지운 것: 옛 register·moveToRegion·zoom 3종·setMapInteractive·
+//  drawRegionBoundary·선택 동 강조 마커)
 //
 // 업소 마커·카드 기능은 **살렸다.** 보는 지도만 남은 쪽으로 바꿔 끼웠고,
 // Phase 2-D에서 통합 화면이 그대로 호출한다.
 //
-// ⚠️ 이름에 아직 `Step1`이 붙어 있다. Step이 하나로 합쳐졌으니 이제 거짓말이지만,
-//    이름 변경은 Phase 2-B-3에서 **따로** 한다 — 기능 변경과 이름 변경이 한
-//    커밋에 섞이면 diff에서 진짜 변경을 못 찾는다.
+// 이어서 `Step1` 꼬리표도 전부 뗐다(2-B-3). 붙인 이유였던 "둘 중 어느 쪽"이
+// 사라졌으니, 남겨두면 있지도 않은 구분을 가리키는 이름이 된다.
 // ═══════════════════════════════════════════════════════════
 
 // ⬇️ 추가 — 마커 Tap시 바깥에서 실행할 함수
@@ -53,7 +55,7 @@ Business? _activeOverlayBusiness;
 //    그때 손볼 것 → 화면 맞추기(setBounds)는 이미 동 경계에 맞춰둔 카메라와
 //    충돌하므로 옵션으로 빼야 하고, 300ms 대기도 불필요해진다.
 Future<void> addBusinessMarkers(List<Business> businesses) async {
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return; // 지도가 아직 안 만들어졌으면 그냥 종료 (방어 코드)
   if (businesses.isEmpty) return; // 업소가 하나도 없으면 그냥 종료 (방어 코드)
 
@@ -119,7 +121,7 @@ Future<void> addBusinessMarkers(List<Business> businesses) async {
 
 // ⬇️ 마커 탭하면 이 함수가 호출되어 지도 위에 카드를 얹음
 void showBusinessOverlay(Business business) {
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return; // 방어 코드
 
   // ⭐ 이미 열려있는 카드가 "지금 누른 그 업소"면, 새로 열지 말고 그냥 닫기
@@ -226,31 +228,31 @@ String _pinDataUri({required double size, required String color}) {
 }
 
 /// 앱 전체에서 단 하나뿐인 지도 객체 (2026-08-23 일원화 — 파일 상단 주석 참고)
-KakaoMap? kakaoMapInstanceStep1;
+KakaoMap? kakaoMapInstance;
 
 /// 지도가 실제 크기를 잡은 뒤 초기 화면(서울 전역 경계)을 한 번 그렸는지 여부.
 /// 지도를 새로 만들 때마다(화면 재진입) false로 되돌린다.
-bool _step1MapReadyNotified = false;
+bool _mapReadyNotified = false;
 
-/// Step 1 지도가 **실제로 그릴 수 있는 크기**가 된 첫 순간에 한 번 호출된다.
+/// 지도가 **실제로 그릴 수 있는 크기**가 된 첫 순간에 한 번 호출된다.
 ///
 /// registry는 "언제 준비됐는지"만 알리고, **무엇을 그릴지는 화면이 결정한다.**
 /// 여기서 직접 서울 전역을 그리면, 화면이 이미 고른 구·동을 그리려 할 때
 /// 두 코드가 같은 지도를 두고 경쟁해 결과가 실행 순서에 따라 달라진다.
 /// (SurbiDropdown.onMenuVisibilityChanged와 같은 패턴 — 2026-08-21 추가)
-void Function()? onStep1MapReady;
+void Function()? onMapReady;
 
-/// Step 1 히트맵 자리에 쓸 "지도를 그릴 빈 공간"을 Flutter에 등록
-/// main() 앱 시작할 때 registerKakaoMapView()와 함께 딱 한 번만 호출
-void registerKakaoMapViewStep1() {
-  ui_web.platformViewRegistry.registerViewFactory('kakao-map-view-step1', (
+/// "지도를 그릴 빈 공간"을 Flutter에 등록
+/// main() 앱 시작할 때 딱 한 번만 호출
+void registerKakaoMapView() {
+  ui_web.platformViewRegistry.registerViewFactory('kakao-map-view', (
     int viewId,
   ) {
     // 화면에 다시 들어오면 지도가 새로 만들어지므로 준비 알림도 다시 보내도록 되돌림
-    _step1MapReadyNotified = false;
+    _mapReadyNotified = false;
 
     final div = web.HTMLDivElement()
-      ..id = 'kakao-map-step1-$viewId'
+      ..id = 'kakao-map-$viewId'
       ..style.width = '100%'
       ..style.height = '100%'
       // ⚠️ 필수 — 카카오맵은 타일을 position:absolute로 깔아 컨테이너 밖으로 넘친다.
@@ -266,7 +268,7 @@ void registerKakaoMapViewStep1() {
       level: 8,
     );
     final map = KakaoMap(div, options);
-    kakaoMapInstanceStep1 = map;
+    kakaoMapInstance = map;
 
     // 지도의 빈 곳을 클릭하면 떠 있는 업소 카드를 닫는다.
     // (삭제된 옛 지도 등록부에 있던 것을 옮겨왔다 — 2026-08-23)
@@ -285,16 +287,16 @@ void registerKakaoMapViewStep1() {
         // 크기가 실제로 잡힌 첫 순간에 딱 한 번 초기 화면을 그린다.
         // 크기가 0인 상태에서 setBounds하면 엉뚱한 곳을 비추고,
         // 매번 다시 그리면 창 크기를 바꿀 때마다 보던 위치가 튕겨나간다.
-        if (!_step1MapReadyNotified &&
+        if (!_mapReadyNotified &&
             div.clientWidth > 0 &&
             div.clientHeight > 0) {
-          _step1MapReadyNotified = true;
+          _mapReadyNotified = true;
           // 비동기지만 기다리지 않는다 — 관찰자 콜백을 붙잡고 있을 이유가 없다
-          final onReady = onStep1MapReady;
+          final onReady = onMapReady;
           if (onReady != null) {
             onReady(); // 화면이 판단 (선택이 있으면 그 구·동, 없으면 서울 전역)
           } else {
-            drawSeoulOverviewStep1(); // 훅을 등록하지 않은 경우의 기본 동작
+            drawSeoulOverview(); // 훅을 등록하지 않은 경우의 기본 동작
           }
         }
       }).toJS,
@@ -305,23 +307,23 @@ void registerKakaoMapViewStep1() {
   });
 }
 
-// ⬇️ 추가 — Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
+// 구를 선택했을 때 찍는 '동 중심' 마커들
 //    (구를 새로 선택할 때, 이 리스트를 보고 이전 마커부터 지움)
-List<KakaoMarker> _step1RegionMarkers = [];
+List<KakaoMarker> _regionMarkers = [];
 
-/// [Step 1] 동 중심 마커를 전부 지운다.
+/// 동 중심 마커를 전부 지운다.
 ///
 /// 지도에 얹히는 것이 폴리곤과 마커 두 종류라, 화면 상태를 바꿀 때 **둘 다**
 /// 손봐야 한다. 서울 전체로 돌아갈 때 폴리곤만 갈아치우고 마커를 두면
 /// 이전에 보던 구의 동 마커가 서울 지도 위에 그대로 남는다. (2026-08-21 사고)
-void clearRegionMarkersStep1() {
-  for (final marker in _step1RegionMarkers) {
+void clearRegionMarkers() {
+  for (final marker in _regionMarkers) {
     marker.setMap(null);
   }
-  _step1RegionMarkers = [];
+  _regionMarkers = [];
 }
 
-/// Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
+/// 구를 선택하면 그 안의 동들을 중심 마커로 찍는다
 ///
 /// [moveCamera] false면 마커만 찍고 카메라(중심·줌)는 건드리지 않는다.
 /// 구 경계 폴리곤이 setBounds로 이미 화면을 맞춘 뒤에 호출되는 경우,
@@ -330,10 +332,10 @@ Future<void> addRegionMarkers(
   List<Region> regions, {
   bool moveCamera = true,
 }) async {
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return;
 
-  clearRegionMarkersStep1();
+  clearRegionMarkers();
 
   if (regions.isEmpty) return; // 동 목록이 비었으면(구 선택 해제 등) 종료
 
@@ -375,7 +377,7 @@ Future<void> addRegionMarkers(
       }).toJS,
     );
 
-    _step1RegionMarkers.add(marker); // ⬅️ 추가 — 새로 만든 마커를 리스트에 저장해둠
+    _regionMarkers.add(marker); // ⬅️ 추가 — 새로 만든 마커를 리스트에 저장해둠
     bounds.extend(position);
   }
 
@@ -401,7 +403,7 @@ Future<void> addRegionMarkers(
 Map<String, List<KakaoLatLng>>? _boundaryCache;
 
 /// 지금 지도에 그려져 있는 선택 동 경계 폴리곤 (항상 1개만 유지)
-KakaoPolygon? _regionPolygonStep1;
+KakaoPolygon? _regionPolygon;
 
 /// 자치구명 → 경계 좌표 배열 (초기 화면용). 동 경계와 같은 방식으로 캐시한다.
 Map<String, List<KakaoLatLng>>? _guBoundaryCache;
@@ -467,23 +469,21 @@ Future<int> _ensureGuBoundaryLoaded() => _loadBoundaryFile(
   (c) => _guBoundaryCache = c,
 );
 
-/// 경계 폴리곤을 실제로 그리는 핵심 로직 (Step1·업소 지도 공용)
+/// 경계 폴리곤을 실제로 그리는 핵심 로직
 ///
 /// 지도 인스턴스를 인자로 받아, 성공하면 만들어진 폴리곤을 반환한다.
 /// 실패(지도 미생성·경계 데이터 없음) 시 null → 호출한 쪽이 폴백을 결정한다.
 ///
-/// [fillOpacity]·[strokeWeight]를 부르는 쪽이 정하는 이유 (2026-08-20 추가):
-/// 두 화면은 아래 깔린 배경이 다르다. Step 1에는 구 전체 동 경계가 네이비로
-/// 깔려 있어 그 위를 이기려면 채움을 진하게 해야 하고, 업소 지도에는 밑칠이
-/// 없어 같은 값을 쓰면 과하게 진해진다.
+/// [fillOpacity]·[strokeWeight]를 **부르는 쪽이 정한다.** 같은 폴리곤이라도
+/// 아래 깔린 배경에 따라 필요한 진하기가 다르기 때문이다 — 구 전체 동 경계가
+/// 네이비로 깔린 위에 그리는 선택 동은 진해야 이기고, 밑칠이 없는 곳에서
+/// 같은 값을 쓰면 과하게 진해진다.
 ///
-/// 공용 함수를 한 값으로 통일했다가, "이 변경이 필요한 화면"과 "이 변경을 받는
-/// 화면"이 다르다는 걸 놓쳐 업소 지도의 채움까지 함께 사라진 적이 있다.
+/// 2026-08-20에 이 값을 한 벌로 통일했다가, "이 변경이 필요한 곳"과 "이 변경을
+/// 받는 곳"이 다르다는 걸 놓쳐 다른 화면의 채움까지 함께 사라진 적이 있다.
 /// 공용화는 같은 이유로 같은 것이 필요할 때 가치가 있지, 코드가 우연히 같아서가 아니다.
 ///
 /// [fitBounds] false면 폴리곤만 그리고 카메라는 건드리지 않는다.
-/// Step 1은 "어디가 좋은지 발견하는 화면"이라 동을 골라도 구 전체 시야를 유지해야
-/// 비교 맥락이 남는다. 업소 지도는 그 동 하나를 파고드는 화면이라 맞춰주는 게 맞다.
 Future<KakaoPolygon?> _renderBoundary(
   KakaoMap? map,
   Region region, {
@@ -499,7 +499,7 @@ Future<KakaoPolygon?> _renderBoundary(
   if (path == null) return null; // 경계 정보 없는 동
 
   // 반투명은 위에서부터 덮어쓰므로, 아래 색이 남는 양 = (1 - 위쪽 불투명도) × 아래 불투명도.
-  // Step 1에서 주황 0.15 / 네이비 0.16이었을 때 네이비가 (1-0.15)×0.16 = 13.6% 남아
+  // 주황 0.15 / 네이비 0.16이었을 때 네이비가 (1-0.15)×0.16 = 13.6% 남아
   // 주황 15%와 거의 1대1로 비겨 갈색으로 보였다. 주황을 0.35로 올리면 네이비는
   // 10.4%만 남아 3대1 이상으로 벌어진다. (2026-08-20 — 값 근거)
   //
@@ -536,7 +536,7 @@ Future<KakaoPolygon?> _renderBoundary(
 /// 주황 경계도 대기표가 필요하다 — 자세한 이유는 [_paintGeneration] 주석 참고
 int _regionPolygonGeneration = 0;
 
-/// [Step 1] 선택된 행정동의 경계를 강조하고 **그 동에 카메라를 맞춘다**
+/// 선택된 행정동의 경계를 강조하고 **그 동에 카메라를 맞춘다**
 ///
 /// 2026-08-20에는 `fitBounds: false`(구 전체 시야 유지)였다. 근거는
 /// "Step 1은 좋은 동을 **발견**하는 화면이라 동 하나만 확대하면 비교 대상이
@@ -544,19 +544,19 @@ int _regionPolygonGeneration = 0;
 ///
 /// 2026-08-23에 뒤집었다. 통합 화면에서는 동을 고르는 순간 패널이 상세 모드로
 /// 바뀐다 — 패널은 파고드는데 지도만 멀리서 보면 앞뒤가 안 맞는다.
-/// 비교 맥락은 `‹`(→ [restoreBaseViewStep1])로 한 번에 되찾을 수 있으므로
+/// 비교 맥락은 `‹`(→ [restoreBaseView])로 한 번에 되찾을 수 있으므로
 /// 8/20의 반대 근거 자체가 사라졌다.
 ///
 /// ⚠️ 확대와 복귀는 **한 쌍**이다. 이 함수만 켜고 복귀를 안 만들면,
 ///    동을 해제해도 지도가 확대된 채 남아 목록과 지도가 어긋난다.
-Future<bool> drawRegionBoundaryStep1(Region region) async {
+Future<bool> drawRegionBoundary(Region region) async {
   final generation = ++_regionPolygonGeneration;
 
   // ⚠️ **먼저 그리고 나중에 바꿔 끼운다.** 예전처럼 지우기를 await 앞에 두면,
   //    두 호출이 겹칠 때 서로 빈 자리를 지우고 각자 폴리곤을 남겨
   //    주황 경계가 지도에 영구히 붙어버린다. (_paintBoundaries와 같은 사고)
   final polygon = await _renderBoundary(
-    kakaoMapInstanceStep1,
+    kakaoMapInstance,
     region,
     // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
     fillOpacity: 0.35,
@@ -569,24 +569,24 @@ Future<bool> drawRegionBoundaryStep1(Region region) async {
     return false;
   }
 
-  _regionPolygonStep1?.setMap(null);
-  _regionPolygonStep1 = polygon;
-  return _regionPolygonStep1 != null;
+  _regionPolygon?.setMap(null);
+  _regionPolygon = polygon;
+  return _regionPolygon != null;
 }
 
-/// [Step 1] 동 선택을 풀었을 때 돌아갈 시야 — 마지막으로 그린 경계 전체의 범위.
+/// 동 선택을 풀었을 때 돌아갈 시야 — 마지막으로 그린 경계 전체의 범위.
 ///
 /// 서울 전체를 그렸으면 서울 25개 구, 구를 그렸으면 그 구의 동 전체가 담긴다.
 /// **폴리곤을 다시 그리지 않고 카메라만 되돌리기 위해** 따로 들고 있는다.
 /// (다시 그리면 425개 좌표를 또 계산하게 되고, 화면도 한 번 깜빡인다)
-KakaoLatLngBounds? _step1BaseBounds;
+KakaoLatLngBounds? _baseBounds;
 
-/// [Step 1] 동 선택 해제 → 방금 전 단위(구 전체 또는 서울 전체) 시야로 복귀
+/// 동 선택 해제 → 방금 전 단위(구 전체 또는 서울 전체) 시야로 복귀
 ///
-/// [drawRegionBoundaryStep1]의 확대와 짝을 이루는 함수다.
-void restoreBaseViewStep1() {
-  final map = kakaoMapInstanceStep1;
-  final bounds = _step1BaseBounds;
+/// [drawRegionBoundary]의 확대와 짝을 이루는 함수다.
+void restoreBaseView() {
+  final map = kakaoMapInstance;
+  final bounds = _baseBounds;
   if (map == null || bounds == null) return;
   map.setBounds(bounds);
 }
@@ -615,7 +615,7 @@ void restoreBaseViewStep1() {
 /// 좌표는 가짜여도 **밀도는 진짜**여야 "실제로 얼마나 빽빽해지는지"를 볼 수 있다.
 const int kSampleBusinessesPerDong = 1265;
 
-List<KakaoMarker> _businessDotsStep1 = [];
+List<KakaoMarker> _businessDots = [];
 
 /// 점 마커 이미지 — **한 번 만들어 전부가 공유한다.**
 /// 1,265개마다 새로 만들면 같은 그림을 1,265번 디코딩하게 된다.
@@ -640,12 +640,12 @@ KakaoMarkerImage _ensureDotMarkerImage() {
 /// **지우기도 대기표를 갱신한다.** 그리는 도중에 동을 해제하면, 지운 뒤에
 /// 뒤늦게 끝난 그리기가 점을 다시 얹어버린다. 번호를 올려두면 그 요청이
 /// 스스로 물러난다.
-void clearBusinessDotsStep1() {
+void clearBusinessDots() {
   _dotGeneration++;
-  for (final marker in _businessDotsStep1) {
+  for (final marker in _businessDots) {
     marker.setMap(null);
   }
-  _businessDotsStep1 = [];
+  _businessDots = [];
 }
 
 /// 이 함수도 [_paintBoundaries]와 같은 이유로 대기표가 필요하다 —
@@ -653,11 +653,11 @@ void clearBusinessDotsStep1() {
 int _dotGeneration = 0;
 
 /// 선택한 동의 경계 **안쪽에만** 샘플 점을 뿌린다. 반환값 = 실제로 찍은 개수.
-Future<int> drawSampleBusinessDotsStep1(
+Future<int> drawSampleBusinessDots(
   Region region, {
   int count = kSampleBusinessesPerDong,
 }) async {
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return 0;
 
   final generation = ++_dotGeneration;
@@ -666,7 +666,7 @@ Future<int> drawSampleBusinessDotsStep1(
   if (generation != _dotGeneration) return 0; // 더 새로운 요청이 왔다
 
   // 지우기는 대기 뒤에 — 대기 전에 지우면 상대가 그린 점을 못 지운다
-  clearBusinessDotsStep1();
+  clearBusinessDots();
 
   final path = _boundaryCache?[region.regionCode];
   if (path == null) return 0; // 경계 없는 동 — 뿌릴 범위를 모른다
@@ -683,7 +683,7 @@ Future<int> drawSampleBusinessDotsStep1(
       KakaoMarkerOptions(position: point, image: image),
     );
     marker.setMap(map);
-    _businessDotsStep1.add(marker);
+    _businessDots.add(marker);
   }
   watch.stop();
 
@@ -776,22 +776,22 @@ bool _isInsidePolygon(
   return inside;
 }
 
-/// [Step 1] 경계 폴리곤 제거 — 구를 바꾸면 이전 동 선택이 무효가 되므로 함께 지움
-void clearRegionBoundaryStep1() {
-  _regionPolygonStep1?.setMap(null);
-  _regionPolygonStep1 = null;
+/// 경계 폴리곤 제거 — 구를 바꾸면 이전 동 선택이 무효가 되므로 함께 지움
+void clearRegionBoundary() {
+  _regionPolygon?.setMap(null);
+  _regionPolygon = null;
 }
 
-/// [Step 1] 동을 선택하면 경계를 강조하고 그 동에 카메라를 맞춘다.
+/// 동을 선택하면 경계를 강조하고 그 동에 카메라를 맞춘다.
 ///
 /// 경계 데이터가 없을 때만 중심 좌표로 이동하는 기존 방식으로 폴백한다.
 /// (폴백은 방어 코드다 — `kSeoulDistricts`가 이 GeoJSON에서 생성됐으므로
 ///  모든 동에 경계가 있고, 실제로 이 분기를 타는 경우는 없어야 정상이다.)
-Future<void> focusRegionStep1(Region region) async {
-  final drawn = await drawRegionBoundaryStep1(region);
+Future<void> focusRegion(Region region) async {
+  final drawn = await drawRegionBoundary(region);
   if (drawn) return;
 
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return;
   map.setLevel(4);
   map.panTo(KakaoLatLng(region.lat, region.lng));
@@ -803,8 +803,8 @@ Future<void> focusRegionStep1(Region region) async {
 /// 휠·드래그 이벤트는 아래쪽 지도 DOM에도 함께 전달돼 지도가 같이 움직였다.
 /// Task 3-3·7/20에서 겪은 "두 렌더링 세계가 서로를 모른다" 문제의 이벤트 버전.
 /// 이벤트 흐름을 역추적하는 대신 카카오맵이 제공하는 전용 함수로 정면 차단한다.
-void setMapInteractiveStep1(bool enabled) {
-  final map = kakaoMapInstanceStep1;
+void setMapInteractive(bool enabled) {
+  final map = kakaoMapInstance;
   if (map == null) return;
   map.setDraggable(enabled);
   map.setZoomable(enabled);
@@ -821,24 +821,24 @@ void setMapInteractiveStep1(bool enabled) {
 //
 // 그래서 '누가 왜 잠갔는지'를 모아두고, **아무 이유도 남지 않았을 때만** 푼다.
 // 방 하나에 여러 사람이 들어와 불을 켰다면, 마지막 사람이 나갈 때 꺼야 하는 것과 같다.
-final Set<String> _step1MapLockReasons = {};
+final Set<String> _mapLockReasons = {};
 
 /// [reason] 이름으로 지도를 잠근다. 같은 이유로 여러 번 불러도 안전하다.
-void lockStep1Map(String reason) {
-  _step1MapLockReasons.add(reason);
-  setMapInteractiveStep1(false);
+void lockMap(String reason) {
+  _mapLockReasons.add(reason);
+  setMapInteractive(false);
 }
 
 /// [reason] 하나를 거둔다. 남은 이유가 없을 때만 실제로 풀린다.
-void unlockStep1Map(String reason) {
-  _step1MapLockReasons.remove(reason);
-  if (_step1MapLockReasons.isEmpty) setMapInteractiveStep1(true);
+void unlockMap(String reason) {
+  _mapLockReasons.remove(reason);
+  if (_mapLockReasons.isEmpty) setMapInteractive(true);
 }
 
 /// 화면을 떠날 때 잠금 이유를 전부 비운다 — 다음 화면이 잠긴 지도를 물려받지 않도록
-void clearStep1MapLocks() {
-  _step1MapLockReasons.clear();
-  setMapInteractiveStep1(true);
+void clearMapLocks() {
+  _mapLockReasons.clear();
+  setMapInteractive(true);
 }
 
 // ── 지도 컨트롤 ──────────────────────────────────────
@@ -847,27 +847,27 @@ void clearStep1MapLocks() {
 // (zoomIn / zoomOut / setMapSkyview). 2026-08-23 일원화로 그쪽을 걷어내
 // 지금은 이 셋만 남았다 — 예고했던 정리를 실제로 한 것이다.
 
-/// [Step 1] 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
-void zoomInStep1() {
-  final map = kakaoMapInstanceStep1;
+/// 줌 인 — 카카오맵은 레벨 숫자가 작을수록 확대
+void zoomIn() {
+  final map = kakaoMapInstance;
   if (map == null) return;
   final next = map.getLevel() - 1;
   if (next < 1) return;
   map.setLevel(next);
 }
 
-/// [Step 1] 줌 아웃
-void zoomOutStep1() {
-  final map = kakaoMapInstanceStep1;
+/// 줌 아웃
+void zoomOut() {
+  final map = kakaoMapInstance;
   if (map == null) return;
   final next = map.getLevel() + 1;
   if (next > 14) return;
   map.setLevel(next);
 }
 
-/// [Step 1] 일반 지도 ↔ 스카이뷰 전환
-void setMapSkyviewStep1(bool isSkyview) {
-  final map = kakaoMapInstanceStep1;
+/// 일반 지도 ↔ 스카이뷰 전환
+void setMapSkyview(bool isSkyview) {
+  final map = kakaoMapInstance;
   if (map == null) return;
   map.setMapTypeId(isSkyview ? kakaoMapTypeSkyview : kakaoMapTypeRoadmap);
 }
@@ -877,7 +877,7 @@ void setMapSkyviewStep1(bool isSkyview) {
 //
 // ③이 "동 하나"를 주황으로 강조하는 것이라면, ④는 "여러 동을 한꺼번에" 깔아
 // 히트맵의 밑바탕을 만든다. 무엇을 깔지는 두 가지다.
-//   · 초기 화면 — 서울 전역 425개 (drawSeoulOverviewStep1)
+//   · 초기 화면 — 서울 전역 425개 (drawSeoulOverview)
 //   · 구 선택 후 — 그 구의 동만 (drawGuBoundaries)
 // 그리는 방식은 완전히 같고 대상만 다르므로 _paintBoundaries 하나로 합쳐 두었다.
 //
@@ -889,12 +889,12 @@ void setMapSkyviewStep1(bool isSkyview) {
 //    (네이비 유지 / 빗금 / 제외)을 색칠 단계 전에 정해야 함. (2026-08-20 CSV 실측)
 // ─────────────────────────────────────────────
 
-/// 지금 Step 1 지도에 깔려 있는 경계 폴리곤들 (서울 전역 또는 선택 구).
-/// 동 하나짜리 주황 폴리곤(_regionPolygonStep1)과는 별개로 관리한다 —
+/// 지금 지도에 깔려 있는 경계 폴리곤들 (서울 전역 또는 선택 구).
+/// 동 하나짜리 주황 폴리곤(_regionPolygon)과는 별개로 관리한다 —
 /// 구를 바꿀 때 통째로 지워야 하고, 동을 바꿀 때는 남아 있어야 하기 때문.
-List<KakaoPolygon> _guPolygonsStep1 = [];
+List<KakaoPolygon> _guPolygons = [];
 
-/// [Step 1] 구에 속한 모든 행정동 경계를 렌더 (히트맵 밑그림)
+/// 구에 속한 모든 행정동 경계를 렌더 (히트맵 밑그림)
 ///
 /// 폴리곤 개수·좌표 개수·소요 시간을 debugPrint로 출력한다.
 /// 서울 전역(425개·약 4,400좌표)을 상시 렌더할 수 있는지 판단하기 위한 계측이며,
@@ -925,7 +925,7 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
   );
 }
 
-/// [Step 1] 서울 자치구 25개 경계를 깔아 초기 화면을 만든다 (2026-08-20 추가)
+/// 서울 자치구 25개 경계를 깔아 초기 화면을 만든다 (2026-08-20 추가)
 ///
 /// 구를 고르기 전에는 폴리곤이 하나도 없어 화면이 맨 카카오맵이었다.
 /// "여기가 무엇을 하는 화면인지" 신호가 없어 지도가 장식처럼 보였다.
@@ -940,11 +940,11 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
 ///
 /// 점수 색칠(Task 4-3) 시에도 같은 원칙을 이어간다:
 /// 초기 화면은 구 평균 점수, 구를 고르면 동별 점수.
-Future<void> drawSeoulOverviewStep1() async {
+Future<void> drawSeoulOverview() async {
   // 서울 전체 시야에는 특정 구의 동 마커가 남아 있으면 안 된다.
   // 폴리곤과 마커는 서로 다른 목록이라 한쪽만 갈아치우면 다른 쪽이 남는다.
-  clearRegionMarkersStep1();
-  clearRegionBoundaryStep1();
+  clearRegionMarkers();
+  clearRegionBoundary();
 
   final loadMs = await _ensureGuBoundaryLoaded();
   await _paintBoundaries(
@@ -956,18 +956,18 @@ Future<void> drawSeoulOverviewStep1() async {
 
 /// 깔려 있던 경계 폴리곤을 전부 제거 — 안 지우면 선택을 바꿀수록 경계가 쌓인다
 void _clearGuPolygons() {
-  for (final polygon in _guPolygonsStep1) {
+  for (final polygon in _guPolygons) {
     polygon.setMap(null);
   }
-  _guPolygonsStep1 = [];
+  _guPolygons = [];
 }
 
 // ── 겹쳐 그리기 사고 방지 (2026-08-23) ──────────────────────────
 //
 // 이 함수는 안에서 `await` 하기 때문에 **끝나기 전에 또 불릴 수 있다.**
 // 실제로 2-A에서 URL 동기화가 들어오면서 두 경로가 동시에 지도를 그리게 됐다:
-//   ① URL 변경 → 상태 변경 → ref.listen → showGuOnStep1
-//   ② 지도 준비 완료 → onStep1MapReady → _syncMapToSelection → showGuOnStep1
+//   ① URL 변경 → 상태 변경 → ref.listen → showGu
+//   ② 지도 준비 완료 → onMapReady → _syncMapToSelection → showGu
 //
 // 예전 코드는 "지우기 → 300ms 대기 → 그리기" 순서였는데, 둘 다 **지우기를
 // 대기 전에** 끝내버려서 서로의 폴리곤을 못 지웠다.
@@ -996,7 +996,7 @@ Future<void> _paintBoundaries(
   int missingCount = 0,
   int loadMs = 0,
 }) async {
-  final map = kakaoMapInstanceStep1;
+  final map = kakaoMapInstance;
   if (map == null) return;
 
   // 대기표를 뽑는다 (2026-08-23 — 아래 '겹쳐 그리기 사고' 주석 참고)
@@ -1024,8 +1024,8 @@ Future<void> _paintBoundaries(
 
   // 동 선택을 풀었을 때 돌아올 자리로 기억해둔다.
   // 여기서 잡는 이유: "방금 그린 단위 전체"가 곧 복귀 지점이고,
-  // 그 값을 계산하는 곳이 정확히 여기라서다. (restoreBaseViewStep1)
-  _step1BaseBounds = bounds;
+  // 그 값을 계산하는 곳이 정확히 여기라서다. (restoreBaseView)
+  _baseBounds = bounds;
 
   for (final path in paths) {
     // 코로플레스(통계 지도) 방식 — 면이 데이터를 담고, 선은 칸만 나눈다.
@@ -1059,7 +1059,7 @@ Future<void> _paintBoundaries(
       ),
     );
     polygon.setMap(map);
-    _guPolygonsStep1.add(polygon);
+    _guPolygons.add(polygon);
 
     for (final point in path) {
       bounds.extend(point);
@@ -1068,13 +1068,13 @@ Future<void> _paintBoundaries(
   }
 
   // 그린 영역 전체가 화면에 들어오도록 맞춤 (면적이 제각각이라 고정 줌보다 정확)
-  if (_guPolygonsStep1.isNotEmpty) map.setBounds(bounds);
+  if (_guPolygons.isNotEmpty) map.setBounds(bounds);
 
   renderWatch.stop();
 
   debugPrint(
     '[히트맵 성능] $label · '
-    '폴리곤 ${_guPolygonsStep1.length}개 · '
+    '폴리곤 ${_guPolygons.length}개 · '
     '좌표 $pointCount개 · '
     '렌더 ${renderWatch.elapsedMilliseconds}ms '
     '(GeoJSON 로드 ${loadMs}ms)'
@@ -1082,15 +1082,15 @@ Future<void> _paintBoundaries(
   );
 }
 
-/// [Step 1] 구를 선택했을 때 지도가 해야 할 일을 한 곳에 모은 함수
+/// 구를 선택했을 때 지도가 해야 할 일을 한 곳에 모은 함수
 ///
 /// 순서에 의미가 있다:
 ///   ① 이전 동의 주황 경계 제거 — 구가 바뀌면 이전 동 선택은 무효
 ///   ② 구 전체 동 경계를 회색으로 렌더 + 카메라를 구 전체에 맞춤
 ///   ③ 동 중심 마커를 찍되 카메라는 건드리지 않음(moveCamera: false)
 ///      — ②가 이미 맞춰놨는데 또 움직이면 화면이 두 번 덜컹거림
-Future<void> showGuOnStep1(List<Region> regions) async {
-  clearRegionBoundaryStep1();
+Future<void> showGu(List<Region> regions) async {
+  clearRegionBoundary();
   await drawGuBoundaries(regions);
   await addRegionMarkers(regions, moveCamera: false);
 }

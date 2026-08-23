@@ -16,16 +16,14 @@ import 'package:surbi_web/widgets/explore/map_controls.dart';
 
 /// 통합 지도 화면 — 기존 Step 1(지역 선택) · 2(업소 지도) · 3(상권 분석)을 하나로
 ///
-/// 8/21 회의 결정에 따른 Phase 1 결과물이다. **지도 하나만 두고** 축척에 따라
+/// 8/21 회의 결정에 따른 결과물이다. **지도 하나만 두고** 축척에 따라
 /// 보여주는 단위를 바꾼다 — 서울이면 자치구, 구를 고르면 행정동, 동을 고르면
 /// 그 동의 업소. 화면을 넘길 때마다 지도를 새로 만들던 비용이 사라진다.
 ///
-/// ⚠️ Phase 1 동안에는 기존 `/select`·`/map` 화면을 **그대로 둔다.**
-/// 새 화면을 만들면서 기존 화면 둘을 같이 고치면, 문제가 생겼을 때 원인이
-/// 셋 중 어디인지 가려낼 수 없다. 라우팅을 옮기고 기존 화면을 지우는 것은 Phase 2.
-///
-/// ⚠️ 지도 인스턴스는 아직 `kakaoMapInstanceStep1` 하나를 빌려 쓴다.
-/// 기존 화면을 지우는 순간 자연히 이 하나만 남는다.
+/// 만드는 동안에는 기존 `/select`·`/map`을 살려뒀다. 새 화면을 만들면서 기존
+/// 화면 둘을 같이 고치면, 문제가 생겼을 때 원인이 셋 중 어디인지 가려낼 수 없다.
+/// 새 화면이 두 화면의 기능을 다 갖춘 2026-08-23(Phase 2-B)에 둘을 삭제했고,
+/// 지도 인스턴스도 그때 하나로 합쳐졌다.
 class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
 
@@ -56,17 +54,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     super.initState();
     // 지도는 위젯이 화면에 붙고 크기가 잡힌 뒤에야 그릴 수 있다.
     // registry는 "언제 준비됐는지"만 알리고, 무엇을 그릴지는 이 화면이 정한다.
-    onStep1MapReady = _syncMapToSelection;
+    onMapReady = _syncMapToSelection;
   }
 
   @override
   void dispose() {
     // 화면을 떠나면 반드시 해제 — 안 그러면 다음 화면이 이 콜백을 물려받는다
-    onStep1MapReady = null;
+    onMapReady = null;
     // 잠금 이유가 남아 있으면 다음 화면이 잠긴 지도를 물려받는다
-    clearStep1MapLocks();
+    clearMapLocks();
     // 점도 지운다 — 다음 화면이 이 지도를 물려받으면 샘플 점이 따라간다
-    clearBusinessDotsStep1();
+    clearBusinessDots();
     _sheetController.dispose();
     super.dispose();
   }
@@ -99,12 +97,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     final selection = ref.read(regionNotifierProvider);
 
     if (selection.selectedGu == null) {
-      await drawSeoulOverviewStep1(); // 아무것도 안 고른 상태 → 서울 25개 구
+      await drawSeoulOverview(); // 아무것도 안 고른 상태 → 서울 25개 구
       return;
     }
 
     final regionsInGu = ref.read(regionsByGuProvider(selection.selectedGu));
-    await showGuOnStep1(regionsInGu);
+    await showGu(regionsInGu);
     if (!mounted) return; // 그리는 사이 화면을 떠났으면 중단
 
     final region = _findSelectedRegion(regionsInGu, selection.regionCode);
@@ -117,10 +115,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   /// 비추고 있어 "점이 차오르는" 것으로 보인다. 반대로 하면 엉뚱한 자리에
   /// 점이 깔렸다가 화면이 따라가는 것처럼 보인다.
   Future<void> _showRegionOnMap(Region region) async {
-    await focusRegionStep1(region);
+    await focusRegion(region);
     if (!mounted) return;
 
-    final drawn = await drawSampleBusinessDotsStep1(region);
+    final drawn = await drawSampleBusinessDots(region);
     if (!mounted) return;
 
     setState(() => _sampleDotCount = drawn);
@@ -128,7 +126,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
   /// 동에서 빠져나올 때 — 점을 지우고 배지도 내린다
   void _hideRegionOnMap() {
-    clearBusinessDotsStep1();
+    clearBusinessDots();
     if (_sampleDotCount != 0) setState(() => _sampleDotCount = 0);
   }
 
@@ -140,9 +138,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     // 'menu'라는 이유로 잠근다. 패널 터치('panel')와 별개로 관리되므로
     // 한쪽이 풀려도 메뉴가 열려 있는 한 지도는 잠긴 채로 남는다.
     if (isMenuOpen) {
-      lockStep1Map('menu');
+      lockMap('menu');
     } else {
-      unlockStep1Map('menu');
+      unlockMap('menu');
     }
   }
 
@@ -264,9 +262,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         // 구가 바뀌면 이전 동의 점은 무조건 무효다
         _hideRegionOnMap();
         if (next.selectedGu == null) {
-          drawSeoulOverviewStep1(); // 구 해제 → 서울 전체로 넓힘
+          drawSeoulOverview(); // 구 해제 → 서울 전체로 넓힘
         } else {
-          showGuOnStep1(ref.read(regionsByGuProvider(next.selectedGu)));
+          showGu(ref.read(regionsByGuProvider(next.selectedGu)));
         }
       }
 
@@ -274,9 +272,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         if (next.regionCode == null) {
           // 동만 해제 — 강조를 지우고 **카메라도 방금 전 시야로 되돌린다.**
           // 되돌리지 않으면 목록은 구 전체인데 지도만 아까 그 동에 확대된 채
-          // 남는다. 확대(focusRegionStep1)와 복귀는 한 쌍이다.
-          clearRegionBoundaryStep1();
-          restoreBaseViewStep1();
+          // 남는다. 확대(focusRegion)와 복귀는 한 쌍이다.
+          clearRegionBoundary();
+          restoreBaseView();
           _hideRegionOnMap();
         } else {
           final region = _findSelectedRegion(
@@ -452,15 +450,15 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
       child: Stack(
         children: [
           const Positioned.fill(
-            child: HtmlElementView(viewType: 'kakao-map-view-step1'),
+            child: HtmlElementView(viewType: 'kakao-map-view'),
           ),
           Positioned(
             top: 12,
             right: 12,
             child: MapControls(
-              onZoomIn: zoomInStep1,
-              onZoomOut: zoomOutStep1,
-              onSkyviewChanged: setMapSkyviewStep1,
+              onZoomIn: zoomIn,
+              onZoomOut: zoomOut,
+              onSkyviewChanged: setMapSkyview,
             ),
           ),
           // 점이 떠 있는 동안에는 **항상** 가짜라는 사실을 함께 띄운다.
@@ -670,10 +668,10 @@ class _MapLockZoneState extends State<_MapLockZone> {
   /// 계속 만지는 동안에는 예약이 계속 미뤄지므로 잠금이 유지된다.
   void _touch([_]) {
     _unlockTimer?.cancel();
-    lockStep1Map(_reason);
+    lockMap(_reason);
     _unlockTimer = Timer(
       const Duration(milliseconds: 300),
-      () => unlockStep1Map(_reason),
+      () => unlockMap(_reason),
     );
   }
 
@@ -681,7 +679,7 @@ class _MapLockZoneState extends State<_MapLockZone> {
   void dispose() {
     // 화면을 떠날 때 지도가 잠긴 채로 남지 않도록 (2026-07-20에 배운 것)
     _unlockTimer?.cancel();
-    unlockStep1Map(_reason);
+    unlockMap(_reason);
     super.dispose();
   }
 
