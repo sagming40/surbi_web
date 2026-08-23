@@ -1,12 +1,16 @@
 // lib/views/explore_page.dart
 
+import 'dart:async'; // Timer — 지도 잠금 자동 해제
+
 import 'package:flutter/gestures.dart'; // PointerDeviceKind — 시트 마우스 드래그 허용
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/models/region.dart';
 import 'package:surbi_web/providers/region_provider.dart';
 import 'package:surbi_web/services/kakao_map_view_registry.dart';
+import 'package:surbi_web/widgets/explore/explore_panel.dart';
 import 'package:surbi_web/widgets/explore/explore_top_bar.dart';
 import 'package:surbi_web/widgets/explore/map_controls.dart';
 
@@ -44,6 +48,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
+  /// 지금 지도에 뿌려둔 **샘플** 업소 점 개수 (0이면 배지를 안 띄운다)
+  int _sampleDotCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +63,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   void dispose() {
     // 화면을 떠나면 반드시 해제 — 안 그러면 다음 화면이 이 콜백을 물려받는다
     onStep1MapReady = null;
+    // 잠금 이유가 남아 있으면 다음 화면이 잠긴 지도를 물려받는다
+    clearStep1MapLocks();
+    // 점도 지운다 — 다음 화면이 이 지도를 물려받으면 샘플 점이 따라간다
+    clearBusinessDotsStep1();
     _sheetController.dispose();
     super.dispose();
   }
@@ -97,7 +108,28 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     if (!mounted) return; // 그리는 사이 화면을 떠났으면 중단
 
     final region = _findSelectedRegion(regionsInGu, selection.regionCode);
-    if (region != null) await focusRegionStep1(region);
+    if (region != null) await _showRegionOnMap(region);
+  }
+
+  /// 동 하나를 지도에 펼친다 — 확대 → 샘플 업소 점 → 배지 갱신.
+  ///
+  /// 순서에 의미가 있다. 확대를 먼저 해야 점을 찍는 동안 화면이 이미 그 동을
+  /// 비추고 있어 "점이 차오르는" 것으로 보인다. 반대로 하면 엉뚱한 자리에
+  /// 점이 깔렸다가 화면이 따라가는 것처럼 보인다.
+  Future<void> _showRegionOnMap(Region region) async {
+    await focusRegionStep1(region);
+    if (!mounted) return;
+
+    final drawn = await drawSampleBusinessDotsStep1(region);
+    if (!mounted) return;
+
+    setState(() => _sampleDotCount = drawn);
+  }
+
+  /// 동에서 빠져나올 때 — 점을 지우고 배지도 내린다
+  void _hideRegionOnMap() {
+    clearBusinessDotsStep1();
+    if (_sampleDotCount != 0) setState(() => _sampleDotCount = 0);
   }
 
   /// 드롭다운 메뉴가 열려 있는 동안 지도의 드래그·휠을 잠근다.
@@ -105,7 +137,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   /// 메뉴는 Flutter 오버레이, 지도는 Platform View(브라우저 DOM)라
   /// 휠·드래그 이벤트가 양쪽에 이중 전달돼 목록을 스크롤하면 지도가 같이 움직인다.
   void _lockMapWhileMenuOpen(bool isMenuOpen) {
-    setMapInteractiveStep1(!isMenuOpen);
+    // 'menu'라는 이유로 잠근다. 패널 터치('panel')와 별개로 관리되므로
+    // 한쪽이 풀려도 메뉴가 열려 있는 한 지도는 잠긴 채로 남는다.
+    if (isMenuOpen) {
+      lockStep1Map('menu');
+    } else {
+      unlockStep1Map('menu');
+    }
   }
 
   Region? _findSelectedRegion(List<Region> regions, String? code) {
@@ -139,6 +177,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     // 구를 해제했는데 빈 목록으로 다시 그리면 지도가 텅 비어버린다.
     ref.listen<RegionSelection>(regionNotifierProvider, (previous, next) {
       if (previous?.selectedGu != next.selectedGu) {
+        // 구가 바뀌면 이전 동의 점은 무조건 무효다
+        _hideRegionOnMap();
         if (next.selectedGu == null) {
           drawSeoulOverviewStep1(); // 구 해제 → 서울 전체로 넓힘
         } else {
@@ -148,14 +188,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
       if (previous?.regionCode != next.regionCode) {
         if (next.regionCode == null) {
-          // 동만 해제 — 카메라는 구 전체 시야 그대로 두고 강조만 지운다
+          // 동만 해제 — 강조를 지우고 **카메라도 방금 전 시야로 되돌린다.**
+          // 되돌리지 않으면 목록은 구 전체인데 지도만 아까 그 동에 확대된 채
+          // 남는다. 확대(focusRegionStep1)와 복귀는 한 쌍이다.
           clearRegionBoundaryStep1();
+          restoreBaseViewStep1();
+          _hideRegionOnMap();
         } else {
           final region = _findSelectedRegion(
             ref.read(regionsByGuProvider(next.selectedGu)),
             next.regionCode,
           );
-          if (region != null) focusRegionStep1(region);
+          if (region != null) _showRegionOnMap(region);
         }
       }
     });
@@ -185,7 +229,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= _wideBreakpoint;
-                  return isWide ? _buildWideLayout() : _buildNarrowLayout();
+                  return isWide
+                      ? _buildWideLayout(
+                          selection,
+                          regionsInGu,
+                          selectedRegion,
+                          availableWidth: constraints.maxWidth,
+                        )
+                      : _buildNarrowLayout(
+                          selection,
+                          regionsInGu,
+                          selectedRegion,
+                        );
                 },
               ),
             ),
@@ -195,26 +250,52 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     );
   }
 
-  /// 넓은 화면 — 좌측 고정 패널 + 지도
+  /// 넓은 화면 — 좌측 패널 + 지도
   ///
   /// `stretch`를 주는 이유: 기본값(center)이면 자식이 세로로 "필요한 만큼"만
   /// 차지하려 해서, 높이가 정해지지 않은 목록형 위젯이 들어갔을 때 계산이 꼬인다.
   /// score_shell의 2컬럼 레이아웃도 같은 이유로 stretch를 쓴다.
-  Widget _buildWideLayout() {
+  Widget _buildWideLayout(
+    RegionSelection selection,
+    List<Region> regionsInGu,
+    Region? selectedRegion, {
+    required double availableWidth,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 넓은 화면의 좌측 패널은 시트가 아니라 고정 영역이라
         // 스크롤 컨트롤러도 손잡이도 필요 없다
-        SizedBox(width: 360, child: _buildPanelPlaceholder(null)),
+        SizedBox(
+          width: _panelWidthFor(availableWidth),
+          child: _buildPanel(selection, regionsInGu, selectedRegion),
+        ),
         const VerticalDivider(width: 1),
         Expanded(child: _buildMapArea()),
       ],
     );
   }
 
+  /// 넓은 화면에서 좌측 패널이 가져갈 폭.
+  ///
+  /// 기획서 §7.3의 `600~1200 → 지도 60% + 패널 40%`를 따른다.
+  /// 전에는 360 고정이었는데, 그러면 폭 600에서 패널이 60%가 되어
+  /// **비율이 정확히 뒤집혔다**(지도 240px). 최대 폭만 보고 정한 값이라
+  /// 폭이 줄어드는 구간을 확인하지 않은 실수였다. (2026-08-23 수정)
+  ///
+  /// 비율만 쓰지 않고 [clamp]로 양 끝을 묶는 이유:
+  ///   · 300 미만 → 동 목록·업종 드롭다운이 잘린다
+  ///   · 420 초과 → 글줄이 너무 길어져 읽기 나빠지고 지도만 손해다
+  double _panelWidthFor(double availableWidth) {
+    return (availableWidth * 0.4).clamp(300.0, 420.0);
+  }
+
   /// 좁은 화면 — 지도가 전체를 차지하고 패널은 하단 시트로 올라온다
-  Widget _buildNarrowLayout() {
+  Widget _buildNarrowLayout(
+    RegionSelection selection,
+    List<Region> regionsInGu,
+    Region? selectedRegion,
+  ) {
     return Stack(
       children: [
         Positioned.fill(child: _buildMapArea()),
@@ -242,9 +323,16 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 // ⚠️ 앱 전체에 걸면 드롭다운 메뉴 등 다른 목록의 조작감까지 바뀐다.
                 child: ScrollConfiguration(
                   behavior: const _SheetScrollBehavior(),
-                  child: _buildPanelPlaceholder(
-                    scrollController,
+                  child: _buildPanel(
+                    selection,
+                    regionsInGu,
+                    selectedRegion,
+                    scrollController: scrollController,
                     showHandle: true,
+                    // 좁은 화면에서만 패널 안에도 `‹`를 둔다 —
+                    // 상단 바까지 손을 올리지 않고 되돌릴 수 있게
+                    // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
+                    onStepBack: _stepBackAction(selection),
                   ),
                 ),
               ),
@@ -279,44 +367,143 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               onSkyviewChanged: setMapSkyviewStep1,
             ),
           ),
+          // 점이 떠 있는 동안에는 **항상** 가짜라는 사실을 함께 띄운다.
+          // 이 배지가 없으면 스크린샷 한 장이 "업소 표시 완료"로 읽힌다.
+          if (_sampleDotCount > 0)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              right: 12,
+              child: _SampleDataBadge(count: _sampleDotCount),
+            ),
         ],
       ),
     );
   }
 
-  /// Step 1-B에서 실제 내용(안내 / 동 목록 / 동 요약 + 업종 + 블러 카드)으로 교체된다.
-  ///
-  /// 하단 시트로 쓸 때는 시트가 준 [scrollController]를 넘겨야 내용을 끌어올릴 수 있다.
-  /// [showHandle]은 시트일 때만 true — 손잡이를 **목록 안에** 두는 것이 중요하다.
-  /// 시트는 목록의 드래그로 움직이므로, 목록 바깥에 둔 손잡이는 잡아도 반응이 없다.
-  /// (가장 잡고 싶게 생긴 자리가 유일하게 안 되는 자리가 되어버린다)
-  Widget _buildPanelPlaceholder(
-    ScrollController? scrollController, {
+  /// 패널 하나를 만든다. 넓은 화면과 시트가 **같은 위젯**을 쓴다 —
+  /// 담는 그릇만 다르고 내용은 같아야 하므로, 두 벌로 만들면 한쪽만 고치는 사고가 난다.
+  Widget _buildPanel(
+    RegionSelection selection,
+    List<Region> regionsInGu,
+    Region? selectedRegion, {
+    ScrollController? scrollController,
     bool showHandle = false,
+    VoidCallback? onStepBack,
   }) {
-    return ListView(
-      controller: scrollController,
-      padding: EdgeInsets.zero,
-      children: [
-        if (showHandle) _SheetHandle(onTap: _toggleSheet),
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-              decoration: BoxDecoration(
-                color: SurbiColors.accentTint,
-                borderRadius: BorderRadius.circular(SurbiRadius.card),
-              ),
-              child: const Text(
-                '패널 자리\n(Step 1-B에서 채웁니다)',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: SurbiColors.accent, height: 1.6),
+    final categories = ref.watch(categoryListProvider);
+
+    return ExplorePanel(
+      selectedGu: selection.selectedGu,
+      regionsInGu: regionsInGu,
+      selectedRegion: selectedRegion,
+      categories: categories,
+      selectedCategory: _findSelectedCategory(
+        categories,
+        selection.categoryCode,
+      ),
+      scrollController: scrollController,
+      showHandle: showHandle,
+      onStepBack: onStepBack,
+      onHandleTap: _toggleSheet,
+      onMenuVisibilityChanged: _lockMapWhileMenuOpen,
+      onRegionTap: (region) {
+        ref
+            .read(regionNotifierProvider.notifier)
+            .selectRegion(region.regionCode);
+      },
+      onCategoryChanged: (category) {
+        ref
+            .read(regionNotifierProvider.notifier)
+            .selectCategory(category['code']!);
+      },
+      // 동과 업종이 모두 정해져야 점수를 볼 수 있다
+      onScoreTap:
+          (selection.regionCode != null && selection.categoryCode != null)
+          ? () => context.go(
+              '/score/${selection.regionCode}/${selection.categoryCode}',
+            )
+          : null,
+    );
+  }
+
+  /// 업종 목록에서 code와 일치하는 항목을 찾는다. 없으면 null
+  ///
+  /// ⚠️ `categoryListProvider`가 `List<Map<String, String>>`이라 이런 헬퍼가 필요하다.
+  /// Task 4-3에서 `GET /api/categories`를 붙일 때 `models/category.dart`로 승격시키면
+  /// `Region`과 같은 결이 되고 `category['name']!` 같은 느낌표도 사라진다.
+  Map<String, String>? _findSelectedCategory(
+    List<Map<String, String>> categories,
+    String? code,
+  ) {
+    if (code == null) return null;
+    for (final category in categories) {
+      if (category['code'] == code) return category;
+    }
+    return null;
+  }
+}
+
+/// 지도 위 점이 **샘플**임을 알리는 배지.
+///
+/// 화면에 이걸 띄우는 것 자체가 목적이다 — 이번 작업의 목표는
+/// "업소를 표시했다"가 아니라 **"파이프는 다 깔았으니 데이터만 주세요"**를
+/// 팀에 보여주는 것이다. 배지를 빼면 스크린샷이 정반대 메시지가 된다.
+///
+/// 개수도 같이 적는다. 그래야 BE가 "동 하나에 이 정도면 잘라서 줘야겠다"를
+/// 판단할 수 있다.
+class _SampleDataBadge extends StatelessWidget {
+  final int count;
+
+  const _SampleDataBadge({required this.count});
+
+  /// 1265 → "1,265". 뒤에서 세 자리마다 쉼표를 넣는다.
+  /// (intl의 NumberFormat을 쓸 수도 있지만, 배지 하나 때문에 로케일 초기화를
+  ///  끌어오는 것보다 이 편이 가볍다)
+  static String _withComma(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          // 지도 위라 반투명은 금물 — 뒤에 점이 비치면 글자를 못 읽는다
+          color: SurbiColors.accent,
+          borderRadius: BorderRadius.circular(SurbiRadius.chip),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 16,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                '샘플 좌표 ${_withComma(count)}개 · '
+                '실제 업소 537,488건은 GET /api/businesses 연동 대기 중',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -327,42 +514,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 /// 데스크톱에서는 목록을 잡아끄는 대신 휠로 스크롤하는 것이 관습이기 때문이다.
 /// 하지만 하단 시트는 '잡아서 끌어올리는' 것이 유일한 조작법이라 예외가 필요하다.
 ///
-/// 하단 시트 손잡이 — 끌 수도 있고 탭할 수도 있다.
-///
-/// 보이는 막대는 44×4로 얇지만, 실제로 누를 수 있는 영역은 위아래 여백까지
-/// 포함해 24px 정도로 잡는다. **보이는 크기와 누를 수 있는 크기는 달라도 된다** —
-/// 손가락이나 커서가 정확히 4px 막대를 맞히길 기대하면 안 된다.
-class _SheetHandle extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _SheetHandle({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click, // 누를 수 있다는 걸 커서로 알림
-      child: GestureDetector(
-        onTap: onTap,
-        // 투명한 영역도 탭을 받도록 — 없으면 막대 픽셀만 반응한다
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: 24,
-          child: Center(
-            child: Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: SurbiColors.placeholderGray,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// 이 규칙은 `ScrollConfiguration`으로 시트에만 씌운다. 앱 전체에 걸면
 /// 드롭다운 메뉴처럼 휠로 쓰는 목록까지 조작감이 달라진다.
 class _SheetScrollBehavior extends MaterialScrollBehavior {
@@ -377,36 +528,68 @@ class _SheetScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-/// 이 위젯 위에 손이 올라와 있는 동안 지도의 드래그·휠을 잠근다.
+/// 이 위젯을 만지는 동안 지도의 드래그·휠을 잠근다.
 ///
 /// **왜 필요한가** — 지도는 Flutter가 캔버스에 그린 그림이 아니라 진짜 브라우저
-/// DOM(Platform View)이다. 그 위에 얹힌 Flutter 위젯을 **클릭**하는 건 되지만,
-/// **드래그**는 `mousedown` 뒤에 이어지는 `mousemove`를 지도 DOM의 리스너가
-/// 물고 늘어져 지도가 대신 움직여 버린다.
+/// DOM(Platform View)이다. 그 위에 얹힌 Flutter 위젯을 클릭하는 건 되지만,
+/// 드래그·휠은 지도 DOM의 리스너가 물고 늘어져 지도가 대신 움직인다.
 /// (2026-07-08 이슈 문서 "시도 3 — 패널을 드래그하면 지도가 터치를 가로챈다"와 동일)
 ///
-/// 이벤트가 어디로 가는지 역추적하는 대신, 카카오맵이 제공하는 `setDraggable`/
-/// `setZoomable`로 **지도 쪽을 잠가서** 경쟁 자체를 없앤다.
-/// SurbiDropdown 메뉴가 열린 동안 지도를 잠그는 것(2026-07-20)과 같은 해법이다.
+/// 이벤트를 역추적하는 대신 카카오맵의 `setDraggable`/`setZoomable`로
+/// **지도 쪽을 잠가서** 경쟁 자체를 없앤다. (2026-07-20 드롭다운과 같은 해법)
 ///
-/// 마우스(hover)와 터치(pointer)를 둘 다 받는 이유: 터치 기기에는 hover가 없고,
-/// 마우스는 누르기 전에 이미 위에 올라와 있어 hover가 더 빨리 잠근다.
-class _MapLockZone extends StatelessWidget {
+/// ⚠️ **`MouseRegion`을 쓰지 말 것.** 지도(Platform View) 위에서는
+/// `onEnter`/`onExit`가 불리지 않는다. 같은 이유로 커서 모양도 안 바뀐다.
+/// 원시 포인터 이벤트를 받는 `Listener`는 정상 동작하므로 이쪽만 쓴다.
+/// (2026-08-21 — 드래그는 되는데 휠 스크롤에서만 지도가 움직이던 원인)
+///
+/// 잠금을 **타이머로 푸는** 이유: 휠은 '끝'을 알리는 이벤트가 없다.
+/// 만질 때마다 잠그고 해제 예약을 미루면, 손을 뗀 뒤에만 풀린다.
+class _MapLockZone extends StatefulWidget {
   final Widget child;
 
   const _MapLockZone({required this.child});
 
   @override
+  State<_MapLockZone> createState() => _MapLockZoneState();
+}
+
+class _MapLockZoneState extends State<_MapLockZone> {
+  /// 이 잠금의 이름. 드롭다운 메뉴('menu')와 별개로 관리되어야 한다 —
+  /// 하나의 스위치를 공유하면 먼저 푼 쪽이 다른 쪽의 잠금까지 풀어버린다.
+  static const String _reason = 'panel';
+
+  Timer? _unlockTimer;
+
+  /// 만졌다 — 지도를 잠그고, 잠시 뒤 자동으로 풀도록 예약한다.
+  /// 계속 만지는 동안에는 예약이 계속 미뤄지므로 잠금이 유지된다.
+  void _touch([_]) {
+    _unlockTimer?.cancel();
+    lockStep1Map(_reason);
+    _unlockTimer = Timer(
+      const Duration(milliseconds: 300),
+      () => unlockStep1Map(_reason),
+    );
+  }
+
+  @override
+  void dispose() {
+    // 화면을 떠날 때 지도가 잠긴 채로 남지 않도록 (2026-07-20에 배운 것)
+    _unlockTimer?.cancel();
+    unlockStep1Map(_reason);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setMapInteractiveStep1(false),
-      onExit: (_) => setMapInteractiveStep1(true),
-      child: Listener(
-        onPointerDown: (_) => setMapInteractiveStep1(false),
-        onPointerUp: (_) => setMapInteractiveStep1(true),
-        onPointerCancel: (_) => setMapInteractiveStep1(true),
-        child: child,
-      ),
+    return Listener(
+      onPointerHover: _touch, // 마우스가 위를 지나갈 때
+      onPointerDown: _touch,
+      onPointerMove: _touch,
+      onPointerSignal: _touch, // 휠 스크롤
+      onPointerUp: _touch,
+      onPointerCancel: _touch,
+      child: widget.child,
     );
   }
 }

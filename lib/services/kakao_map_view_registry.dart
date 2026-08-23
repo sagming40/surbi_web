@@ -4,6 +4,7 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'dart:js_interop'; // 추가!
 import 'dart:convert'; // ⭐ 추가 — JSON 문자열 → Dart 객체 변환
+import 'dart:math' as math; // ⭐ 2026-08-23 추가 — 샘플 업소 점 좌표 생성
 import 'package:flutter/foundation.dart'; // ⭐ 추가 — debugPrint (성능 계측 로그)
 import 'package:flutter/services.dart'; // ⭐ 추가 — rootBundle (assets 읽기)
 import 'kakao_map_interop.dart'; // 추가!
@@ -315,6 +316,18 @@ void registerKakaoMapViewStep1() {
 //    (구를 새로 선택할 때, 이 리스트를 보고 이전 마커부터 지움)
 List<KakaoMarker> _step1RegionMarkers = [];
 
+/// [Step 1] 동 중심 마커를 전부 지운다.
+///
+/// 지도에 얹히는 것이 폴리곤과 마커 두 종류라, 화면 상태를 바꿀 때 **둘 다**
+/// 손봐야 한다. 서울 전체로 돌아갈 때 폴리곤만 갈아치우고 마커를 두면
+/// 이전에 보던 구의 동 마커가 서울 지도 위에 그대로 남는다. (2026-08-21 사고)
+void clearRegionMarkersStep1() {
+  for (final marker in _step1RegionMarkers) {
+    marker.setMap(null);
+  }
+  _step1RegionMarkers = [];
+}
+
 /// Step1에서 구 선택 시, 해당 구의 동들을 마커로 찍는 함수
 ///
 /// [moveCamera] false면 마커만 찍고 카메라(중심·줌)는 건드리지 않는다.
@@ -327,10 +340,7 @@ Future<void> addRegionMarkers(
   final map = kakaoMapInstanceStep1;
   if (map == null) return;
 
-  for (final marker in _step1RegionMarkers) {
-    marker.setMap(null);
-  }
-  _step1RegionMarkers = [];
+  clearRegionMarkersStep1();
 
   if (regions.isEmpty) return; // 동 목록이 비었으면(구 선택 해제 등) 종료
 
@@ -608,12 +618,19 @@ Future<bool> drawRegionBoundary(Region region) async {
   return _regionPolygon != null;
 }
 
-/// [Step 1] 선택된 행정동의 경계를 강조 표시 (2026-08-20 추가)
+/// [Step 1] 선택된 행정동의 경계를 강조하고 **그 동에 카메라를 맞춘다**
 ///
-/// 카메라는 건드리지 않는다(`fitBounds: false`). Step 1은 팀 설계상
-/// "행정동별 점수 히트맵에서 좋은 동을 **발견**하는 화면"이라, 동을 골랐다고
-/// 그 동만 확대하면 비교 대상이 화면 밖으로 나가 화면의 목적이 사라진다.
-/// 그 동 하나를 파고드는 일은 다음 화면(업소 지도)의 몫이다.
+/// 2026-08-20에는 `fitBounds: false`(구 전체 시야 유지)였다. 근거는
+/// "Step 1은 좋은 동을 **발견**하는 화면이라 동 하나만 확대하면 비교 대상이
+/// 화면 밖으로 나간다"였고, **화면이 분리돼 있던 그때는 맞는 판단이었다.**
+///
+/// 2026-08-23에 뒤집었다. 통합 화면에서는 동을 고르는 순간 패널이 상세 모드로
+/// 바뀐다 — 패널은 파고드는데 지도만 멀리서 보면 앞뒤가 안 맞는다.
+/// 비교 맥락은 `‹`(→ [restoreBaseViewStep1])로 한 번에 되찾을 수 있으므로
+/// 8/20의 반대 근거 자체가 사라졌다.
+///
+/// ⚠️ 확대와 복귀는 **한 쌍**이다. 이 함수만 켜고 복귀를 안 만들면,
+///    동을 해제해도 지도가 확대된 채 남아 목록과 지도가 어긋난다.
 Future<bool> drawRegionBoundaryStep1(Region region) async {
   _regionPolygonStep1?.setMap(null);
   // 이 화면에는 구 전체 동 경계가 네이비로 깔려 있다 → 그 위를 이기도록 진하게
@@ -622,9 +639,197 @@ Future<bool> drawRegionBoundaryStep1(Region region) async {
     region,
     fillOpacity: 0.35,
     strokeWeight: 4,
-    fitBounds: false, // ⭐ 구 전체 시야 유지
+    fitBounds: true, // ⭐ 2026-08-23 — 선택한 동에 맞춰 확대
   );
   return _regionPolygonStep1 != null;
+}
+
+/// [Step 1] 동 선택을 풀었을 때 돌아갈 시야 — 마지막으로 그린 경계 전체의 범위.
+///
+/// 서울 전체를 그렸으면 서울 25개 구, 구를 그렸으면 그 구의 동 전체가 담긴다.
+/// **폴리곤을 다시 그리지 않고 카메라만 되돌리기 위해** 따로 들고 있는다.
+/// (다시 그리면 425개 좌표를 또 계산하게 되고, 화면도 한 번 깜빡인다)
+KakaoLatLngBounds? _step1BaseBounds;
+
+/// [Step 1] 동 선택 해제 → 방금 전 단위(구 전체 또는 서울 전체) 시야로 복귀
+///
+/// [drawRegionBoundaryStep1]의 확대와 짝을 이루는 함수다.
+void restoreBaseViewStep1() {
+  final map = kakaoMapInstanceStep1;
+  final bounds = _step1BaseBounds;
+  if (map == null || bounds == null) return;
+  map.setBounds(bounds);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 업소 점 (샘플) — 2026-08-23
+//
+// ⚠️⚠️ **좌표는 합성이다. 실제 업소 위치가 아니다.** ⚠️⚠️
+//
+// 왜 가짜를 그리나 — 우리 DB에는 업소 537,488건이 적재·검증까지 끝나 있는데
+// `GET /api/businesses`가 없어서 꺼낼 수가 없다. 그래서 렌더링 파이프라인이
+// 완성됐다는 것을 **눈으로** 보여주고, 팀에는 "데이터만 넣으면 된다"는
+// 그림으로 API를 요청하기 위한 자리 표시다.
+// 화면 좌하단 배지(`_SampleDataBadge`)가 항상 이 사실을 알린다.
+//
+// ⚠️ 이 실측은 **낙관적 하한선**이다. 균등 난수는 실제보다 착하다 —
+//    진짜 상권은 역세권·도로변에 몰리므로 같은 개수라도 더 무거울 수 있다.
+//    클러스터링 도입 여부는 실제 데이터를 받은 뒤 다시 재야 한다.
+//
+// Task 4-5에서 `GET /api/businesses`가 붙으면 이 블록 전체를 지우고
+// `addBusinessMarkers`(업소 지도용, 실제 데이터)로 갈아탄다.
+// ═══════════════════════════════════════════════════════════
+
+/// 동 하나에 뿌릴 샘플 점 개수 — **실제 DB 총건수에서 뽑은 값이다.**
+/// 537,488건 ÷ 425개 동 ≈ 1,265건.
+/// 좌표는 가짜여도 **밀도는 진짜**여야 "실제로 얼마나 빽빽해지는지"를 볼 수 있다.
+const int kSampleBusinessesPerDong = 1265;
+
+List<KakaoMarker> _businessDotsStep1 = [];
+
+/// 점 마커 이미지 — **한 번 만들어 전부가 공유한다.**
+/// 1,265개마다 새로 만들면 같은 그림을 1,265번 디코딩하게 된다.
+KakaoMarkerImage? _dotMarkerImage;
+
+KakaoMarkerImage _ensureDotMarkerImage() {
+  // SVG를 base64로 감싸는 이유: data URI에 `<`, `#`, 공백을 그대로 넣으면
+  // 브라우저마다 해석이 갈린다. base64는 그런 escape 문제가 아예 없다.
+  const svg =
+      "<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'>"
+      "<circle cx='5' cy='5' r='3.5' fill='rgb(242,153,74)' fill-opacity='0.9' "
+      "stroke='rgb(255,255,255)' stroke-width='1'/></svg>";
+  final src = 'data:image/svg+xml;base64,${base64Encode(utf8.encode(svg))}';
+  // ⚠️ 마커는 이미지 '아래 가운데'가 좌표에 붙는다 → 점이 5px 위로 뜬다.
+  //    10px짜리 점에서는 눈에 띄지 않아 지금은 둔다. 실제 데이터가 붙어
+  //    정확한 위치가 중요해지면 `MarkerImage`의 offset 옵션을 뚫을 것.
+  return _dotMarkerImage ??= KakaoMarkerImage(src, KakaoSize(10, 10));
+}
+
+/// 뿌려둔 점을 전부 지운다 — 안 지우면 동을 바꿀수록 점이 쌓인다
+void clearBusinessDotsStep1() {
+  for (final marker in _businessDotsStep1) {
+    marker.setMap(null);
+  }
+  _businessDotsStep1 = [];
+}
+
+/// 선택한 동의 경계 **안쪽에만** 샘플 점을 뿌린다. 반환값 = 실제로 찍은 개수.
+Future<int> drawSampleBusinessDotsStep1(
+  Region region, {
+  int count = kSampleBusinessesPerDong,
+}) async {
+  clearBusinessDotsStep1();
+
+  final map = kakaoMapInstanceStep1;
+  if (map == null) return 0;
+
+  await _ensureBoundaryLoaded();
+  final path = _boundaryCache?[region.regionCode];
+  if (path == null) return 0; // 경계 없는 동 — 뿌릴 범위를 모른다
+
+  final watch = Stopwatch()..start();
+  // 시드를 동 코드로 고정 — 같은 동은 언제 다시 눌러도 같은 그림이 나온다.
+  // 매번 달라지면 "점이 움직인다"는 인상을 줘서 진짜 데이터로 오해받는다.
+  final points = _randomPointsInPolygon(path, count, region.regionCode.hashCode);
+  final generateMs = watch.elapsedMilliseconds;
+
+  final image = _ensureDotMarkerImage();
+  for (final point in points) {
+    final marker = KakaoMarker(
+      KakaoMarkerOptions(position: point, image: image),
+    );
+    marker.setMap(map);
+    _businessDotsStep1.add(marker);
+  }
+  watch.stop();
+
+  debugPrint(
+    '[업소 점·샘플] ${region.regionName} · '
+    '요청 $count개 → 실제 ${points.length}개 · '
+    '좌표생성 ${generateMs}ms · 총 ${watch.elapsedMilliseconds}ms',
+  );
+  return points.length;
+}
+
+/// 다각형 안에 무작위 점 [count]개를 만든다.
+///
+/// **방식: 버리기(rejection) 샘플링.**
+/// 다각형을 감싸는 사각형 안에 점을 던지고, 다각형 밖이면 버리고 다시 던진다.
+/// 다각형 내부를 직접 계산하는 것보다 훨씬 간단하고, 동 모양이 대체로
+/// 뭉툭해서 채택률이 높다.
+///
+/// > 비유 — 지도 위에 쌀알을 뿌리고 **동 경계 밖에 떨어진 것만 골라내는** 것.
+///
+/// [maxAttempts]로 상한을 두는 이유: 아주 길쭉하거나 구멍 난 모양이면
+/// 채택률이 뚝 떨어져 영원히 못 채울 수 있다. 무한 루프는 브라우저를 멈춘다.
+List<KakaoLatLng> _randomPointsInPolygon(
+  List<KakaoLatLng> path,
+  int count,
+  int seed,
+) {
+  if (path.isEmpty) return [];
+
+  // JS 객체를 매번 건너다니면 느리다 → Dart 숫자로 한 번에 옮겨놓고 계산한다
+  final lats = <double>[];
+  final lngs = <double>[];
+  for (final point in path) {
+    lats.add(point.getLat().toDouble());
+    lngs.add(point.getLng().toDouble());
+  }
+
+  var minLat = lats.first, maxLat = lats.first;
+  var minLng = lngs.first, maxLng = lngs.first;
+  for (var i = 1; i < lats.length; i++) {
+    if (lats[i] < minLat) minLat = lats[i];
+    if (lats[i] > maxLat) maxLat = lats[i];
+    if (lngs[i] < minLng) minLng = lngs[i];
+    if (lngs[i] > maxLng) maxLng = lngs[i];
+  }
+
+  final random = math.Random(seed);
+  final points = <KakaoLatLng>[];
+  final maxAttempts = count * 60;
+  var attempts = 0;
+
+  while (points.length < count && attempts < maxAttempts) {
+    attempts++;
+    final lat = minLat + random.nextDouble() * (maxLat - minLat);
+    final lng = minLng + random.nextDouble() * (maxLng - minLng);
+    if (_isInsidePolygon(lats, lngs, lat, lng)) {
+      points.add(KakaoLatLng(lat, lng));
+    }
+  }
+  return points;
+}
+
+/// 점이 다각형 **안**에 있는지 판정 — 레이 캐스팅(ray casting) 알고리즘
+///
+/// 점에서 한쪽 방향으로 반직선을 쏴서 다각형의 변과 **몇 번 만나는지** 센다.
+/// 홀수면 안, 짝수면 밖이다.
+///
+/// > 비유 — 미로 벽을 몇 번 통과했는지 세는 것과 같다.
+/// > 벽을 홀수 번 넘었으면 아직 안쪽, 짝수 번이면 다시 밖으로 나온 것.
+///
+/// 위경도를 평면 좌표처럼 쓰지만, 동 하나는 몇 km라 지구 곡률의 영향이
+/// 무시할 수준이다. (서울 전체를 한 다각형으로 판정하는 용도가 아니다)
+bool _isInsidePolygon(
+  List<double> lats,
+  List<double> lngs,
+  double lat,
+  double lng,
+) {
+  var inside = false;
+  final n = lats.length;
+  // j는 i의 바로 앞 꼭짓점 — 마지막↔처음도 이어야 하므로 n-1에서 시작한다
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    final crossesLatitude = (lats[i] > lat) != (lats[j] > lat);
+    if (!crossesLatitude) continue;
+    // 그 변이 점의 위도선과 만나는 경도를 구해, 점보다 오른쪽이면 1회 통과
+    final crossLng =
+        (lngs[j] - lngs[i]) * (lat - lats[i]) / (lats[j] - lats[i]) + lngs[i];
+    if (lng < crossLng) inside = !inside;
+  }
+  return inside;
 }
 
 /// [Step 1] 경계 폴리곤 제거 — 구를 바꾸면 이전 동 선택이 무효가 되므로 함께 지움
@@ -633,7 +838,7 @@ void clearRegionBoundaryStep1() {
   _regionPolygonStep1 = null;
 }
 
-/// [Step 1] 동을 선택하면 경계를 강조한다. 카메라는 구 전체에 그대로 둔다.
+/// [Step 1] 동을 선택하면 경계를 강조하고 그 동에 카메라를 맞춘다.
 ///
 /// 경계 데이터가 없을 때만 중심 좌표로 이동하는 기존 방식으로 폴백한다.
 /// (폴백은 방어 코드다 — `kSeoulDistricts`가 이 GeoJSON에서 생성됐으므로
@@ -667,6 +872,37 @@ void setMapInteractiveStep1(bool enabled) {
   if (map == null) return;
   map.setDraggable(enabled);
   map.setZoomable(enabled);
+}
+
+// ── 여러 곳이 동시에 지도를 잠글 때 (2026-08-21 추가) ──────────
+//
+// 잠그는 주체가 하나면 위 함수로 충분하지만, 통합 화면에서는 둘 이상이 겹친다.
+// 예: 하단 시트를 만져서 잠근 상태에서 그 안의 드롭다운을 열면 메뉴도 잠근다.
+//
+// 이때 boolean 하나로 관리하면 **먼저 푼 쪽이 다른 쪽의 잠금까지 풀어버린다.**
+// (실제 사고: 패널 잠금이 300ms 뒤 자동 해제되면서, 아직 열려 있는 드롭다운의
+//  잠금까지 풀려 메뉴를 스크롤하면 지도가 따라 움직였다)
+//
+// 그래서 '누가 왜 잠갔는지'를 모아두고, **아무 이유도 남지 않았을 때만** 푼다.
+// 방 하나에 여러 사람이 들어와 불을 켰다면, 마지막 사람이 나갈 때 꺼야 하는 것과 같다.
+final Set<String> _step1MapLockReasons = {};
+
+/// [reason] 이름으로 지도를 잠근다. 같은 이유로 여러 번 불러도 안전하다.
+void lockStep1Map(String reason) {
+  _step1MapLockReasons.add(reason);
+  setMapInteractiveStep1(false);
+}
+
+/// [reason] 하나를 거둔다. 남은 이유가 없을 때만 실제로 풀린다.
+void unlockStep1Map(String reason) {
+  _step1MapLockReasons.remove(reason);
+  if (_step1MapLockReasons.isEmpty) setMapInteractiveStep1(true);
+}
+
+/// 화면을 떠날 때 잠금 이유를 전부 비운다 — 다음 화면이 잠긴 지도를 물려받지 않도록
+void clearStep1MapLocks() {
+  _step1MapLockReasons.clear();
+  setMapInteractiveStep1(true);
 }
 
 // ── Step 1 지도 컨트롤 (2026-08-21 추가) ──────────────
@@ -774,6 +1010,11 @@ Future<void> drawGuBoundaries(List<Region> regions) async {
 /// 점수 색칠(Task 4-3) 시에도 같은 원칙을 이어간다:
 /// 초기 화면은 구 평균 점수, 구를 고르면 동별 점수.
 Future<void> drawSeoulOverviewStep1() async {
+  // 서울 전체 시야에는 특정 구의 동 마커가 남아 있으면 안 된다.
+  // 폴리곤과 마커는 서로 다른 목록이라 한쪽만 갈아치우면 다른 쪽이 남는다.
+  clearRegionMarkersStep1();
+  clearRegionBoundaryStep1();
+
   final loadMs = await _ensureGuBoundaryLoaded();
   await _paintBoundaries(
     _guBoundaryCache!.values.toList(),
@@ -820,6 +1061,11 @@ Future<void> _paintBoundaries(
 
   final bounds = KakaoLatLngBounds();
   var pointCount = 0; // 실제로 그린 좌표 총개수 — 성능의 진짜 원인은 폴리곤 수가 아니라 좌표 수
+
+  // 동 선택을 풀었을 때 돌아올 자리로 기억해둔다.
+  // 여기서 잡는 이유: "방금 그린 단위 전체"가 곧 복귀 지점이고,
+  // 그 값을 계산하는 곳이 정확히 여기라서다. (restoreBaseViewStep1)
+  _step1BaseBounds = bounds;
 
   for (final path in paths) {
     // 코로플레스(통계 지도) 방식 — 면이 데이터를 담고, 선은 칸만 나눈다.
