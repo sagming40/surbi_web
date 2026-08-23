@@ -29,9 +29,15 @@ class ScoreShell extends StatelessWidget {
           if (navigationShell.currentIndex != 0) {
             navigationShell.goBranch(0);
           }
-          // 뒤로 = 상권 분석. go 통일로 스택이 없으므로 목적지를 직접 지정
-          // (기존의 canPop + postFrameCallback 분기는 불필요해져 제거)
-          context.go('/analysis/$buildingId/$categoryCode');
+          // 뒤로 = 방금 떠나온 지도 화면. go 통일로 스택이 없어 목적지를 직접 지정한다.
+          //
+          // 2026-08-23 — `/analysis`에서 `/explore`로 변경.
+          // 예전 흐름은 `/map → /analysis → /score`라 뒤로가 /analysis가 맞았지만,
+          // 통합 화면에서는 `/explore`에서 곧장 여기로 온다. 그대로 두면
+          // **가본 적도 없는 화면**으로 되돌아가게 된다.
+          //
+          // buildingId에는 행정동 코드가 담긴다(라우터 TODO 참고) → 주소가 그대로 맞는다.
+          context.go('/explore/$buildingId/$categoryCode');
         },
       ),
       body: LayoutBuilder(
