@@ -35,16 +35,25 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   /// 좁은 화면에서 패널을 하단 시트로 바꾸는 기준 폭 (기획서 §7.3)
   static const double _wideBreakpoint = 600;
 
-  // 하단 시트가 멈춰 서는 세 자리 (화면 높이 대비 비율).
-  // 상수로 빼둔 이유: 초기 높이·스냅 위치·탭 동작이 **같은 값을 공유**해야
-  // "끌었을 때 서는 자리"와 "탭했을 때 가는 자리"가 어긋나지 않는다.
-  static const double _sheetMin = 0.15; // 손잡이만 보이는 상태
-  static const double _sheetMid = 0.28; // 기본 — 요약 몇 줄이 보이는 정도
-  static const double _sheetMax = 0.85; // 펼침 — 지도는 위쪽만 남음
+  // 8/24 회의 — 최대치는 상단 바 바로 밑까지 다 덮어도 된다.
+  static const double _sheetMax = 1.0;
+
+  // min·mid는 아직 손으로 정한 임시 비율이다.
+  // Step 2에서 ExplorePanel이 콘텐츠 높이를 계산해주면 그 값으로 대체된다.
+  double _sheetMinFraction = 0.12;
+  double _sheetMidFraction = 0.32;
+
+  /// 지금 시트가 셋 중 어디에 가장 가까운지 — ExplorePanel에게
+  /// "얼마나 펼쳐졌으니 뭘 보여줄지" 알려주는 값이다.
+  SheetLevel _sheetLevel = SheetLevel.mid;
 
   /// 시트를 코드로 움직이기 위한 손잡이 (탭 → 펼치기/접기)
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
+
+  /// 시트가 실제로 움직일 수 있는 세로 공간 (상단 바 높이를 뺀 값).
+  /// 좁은 레이아웃이 그려질 때마다 _buildNarrowLayout에서 갱신된다.
+  double _sheetAreaHeight = 0;
 
   /// 지금 지도에 뿌려둔 **샘플** 업소 점 개수 (0이면 배지를 안 띄운다)
   int _sampleDotCount = 0;
@@ -55,6 +64,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     // 지도는 위젯이 화면에 붙고 크기가 잡힌 뒤에야 그릴 수 있다.
     // registry는 "언제 준비됐는지"만 알리고, 무엇을 그릴지는 이 화면이 정한다.
     onMapReady = _syncMapToSelection;
+    // 시트 크기가 바뀔 때마다 지금 셋 중 어디에 가장 가까운지 갱신한다.
+    _sheetController.addListener(_onSheetSizeChanged);
   }
 
   @override
@@ -65,28 +76,113 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     clearMapLocks();
     // 점도 지운다 — 다음 화면이 이 지도를 물려받으면 샘플 점이 따라간다
     clearBusinessDots();
+    _sheetController.removeListener(_onSheetSizeChanged);
     _sheetController.dispose();
     super.dispose();
   }
 
-  /// 손잡이를 탭하면 펼치거나 접는다.
+  // mid·min이 이제 상수가 아니라 매번 값이 갱신되므로 static const로 못 둔다.
+  List<double> get _sheetTapCycle => [
+    _sheetMidFraction,
+    _sheetMax,
+    _sheetMinFraction,
+  ];
+
+  /// 손잡이를 탭하면 세 자리를 순서대로 순환한다.
   ///
-  /// Flutter는 이 동작을 기본 제공하지 않는다 — `DraggableScrollableSheet`는
-  /// 이름 그대로 '끄는 것'만 한다. 지도 앱들이 탭으로 펼쳐지는 건 각자 구현한 것이다.
-  ///
-  /// 어디로 갈지는 **지금 위치가 위쪽인지 아래쪽인지**로 정한다. 고정된 두 자리를
-  /// 번갈아 가게 하면, 사용자가 손으로 중간까지 끌어둔 상태에서 탭했을 때
-  /// 엉뚱한 방향으로 움직인다.
+  /// "가장 가까운 다음 자리"처럼 매번 계산하지 않는 이유 — `snap: true`가
+  /// 걸려 있어 손을 떼면 시트는 항상 세 자리 중 하나에 정확히 서 있다.
+  /// 즉 탭하는 시점엔 애매한 위치가 존재하지 않으므로, 고정 순서로 돌아도
+  /// 계산해서 돌리는 것과 결과가 같다 — 그럴 거면 고정 순서가 더 단순하다.
   void _toggleSheet() {
-    // 시트가 화면에 없을 때(넓은 화면) 호출되면 size 접근이 예외를 던진다
     if (!_sheetController.isAttached) return;
 
-    final isMostlyOpen = _sheetController.size > (_sheetMid + _sheetMax) / 2;
+    final current = _sheetController.size;
+    final cycle = _sheetTapCycle;
+    var closestIndex = 0;
+    var closestDistance = double.infinity;
+    for (var i = 0; i < cycle.length; i++) {
+      final distance = (current - cycle[i]).abs();
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = i;
+      }
+    }
+    final next = cycle[(closestIndex + 1) % cycle.length];
+
     _sheetController.animateTo(
-      isMostlyOpen ? _sheetMid : _sheetMax,
+      next,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  /// 손잡이를 손가락으로 직접 끌 때 — 시트 크기를 수동으로 바꾼다.
+  ///
+  /// `DraggableScrollableSheet`는 원래 "넘겨준 scrollController가 달린
+  /// 스크롤 영역"을 당겨야만 크기가 바뀌는데, 손잡이는 이제 그 스크롤 영역
+  /// 밖에 있어서 자동으로는 반응하지 않는다. 그래서 손가락이 움직인 만큼을
+  /// 직접 계산해서 `jumpTo`로 밀어준다.
+  ///
+  /// 화면 전체 높이가 아니라 [_sheetAreaHeight](시트가 실제로 차지할 수 있는
+  /// 세로 공간, 상단 바 제외)로 나누는 이유 — 상단 바 높이만큼 기준이
+  /// 달라지면, 손가락 1px 이동과 시트가 움직이는 비율이 어긋난다.
+  void _dragSheetByHandle(DragUpdateDetails details) {
+    if (!_sheetController.isAttached || _sheetAreaHeight <= 0) return;
+
+    final deltaFraction = details.delta.dy / _sheetAreaHeight;
+    final next = (_sheetController.size - deltaFraction).clamp(
+      _sheetMinFraction,
+      _sheetMax,
+    );
+    _sheetController.jumpTo(next);
+  }
+
+  /// 손을 떼면 세 자리 중 가장 가까운 곳으로 착 붙인다.
+  ///
+  /// `jumpTo`는 즉시 이동이라 `snap: true`가 관여할 여지가 없다 —
+  /// 그 자동 정렬은 시트 자신의 드래그 인식에만 걸리는 기능이라,
+  /// 손잡이를 수동으로 끌 때는 이 정렬을 우리가 직접 해줘야 한다.
+  void _snapSheetToNearest() {
+    if (!_sheetController.isAttached) return;
+
+    final stops = [_sheetMinFraction, _sheetMidFraction, _sheetMax];
+    final current = _sheetController.size;
+    final nearest = stops.reduce(
+      (a, b) => (current - a).abs() < (current - b).abs() ? a : b,
+    );
+    _sheetController.animateTo(
+      nearest,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// 시트 크기가 바뀔 때마다(끌기·탭·자동 스냅 전부 포함) 지금 셋 중
+  /// 가장 가까운 자리가 뭔지 계산해서, 바뀌었으면 [_sheetLevel]을 갱신한다.
+  /// 이 값이 바로 ExplorePanel에게 "지금 얼마나 펼쳐졌는지"를 알려주는 신호다.
+  void _onSheetSizeChanged() {
+    if (!_sheetController.isAttached) return;
+    final level = _levelForSize(_sheetController.size);
+    if (level != _sheetLevel) setState(() => _sheetLevel = level);
+  }
+
+  SheetLevel _levelForSize(double size) {
+    final candidates = {
+      SheetLevel.min: _sheetMinFraction,
+      SheetLevel.mid: _sheetMidFraction,
+      SheetLevel.max: _sheetMax,
+    };
+    var closest = SheetLevel.mid;
+    var closestDistance = double.infinity;
+    candidates.forEach((level, value) {
+      final distance = (size - value).abs();
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = level;
+      }
+    });
+    return closest;
   }
 
   /// 지금 선택 상태를 지도에 그대로 반영한다 (지도 준비 시 1회).
@@ -334,6 +430,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           selection,
                           regionsInGu,
                           selectedRegion,
+                          availableHeight: constraints.maxHeight,
                         );
                 },
               ),
@@ -362,7 +459,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         // 스크롤 컨트롤러도 손잡이도 필요 없다
         SizedBox(
           width: _panelWidthFor(availableWidth),
-          child: _buildPanel(selection, regionsInGu, selectedRegion),
+          // 넓은 화면은 잘릴 걱정이 없으니 3단계 개념이 필요 없다 — 항상 max.
+          child: _buildPanel(
+            selection,
+            regionsInGu,
+            selectedRegion,
+            level: SheetLevel.max,
+          ),
         ),
         const VerticalDivider(width: 1),
         Expanded(child: _buildMapArea()),
@@ -388,20 +491,23 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   Widget _buildNarrowLayout(
     RegionSelection selection,
     List<Region> regionsInGu,
-    Region? selectedRegion,
-  ) {
+    Region? selectedRegion, {
+    required double availableHeight,
+  }) {
+    _sheetAreaHeight = availableHeight; // 손잡이 드래그 계산에 쓴다
+
     return Stack(
       children: [
         Positioned.fill(child: _buildMapArea()),
         DraggableScrollableSheet(
           controller: _sheetController,
-          initialChildSize: _sheetMid,
-          minChildSize: _sheetMin,
+          initialChildSize: _sheetMidFraction,
+          minChildSize: _sheetMinFraction,
           maxChildSize: _sheetMax,
           // 손을 떼면 가장 가까운 자리로 착 붙는다. 없으면 어중간한 높이에
           // 멈춰 서서 지도도 패널도 제대로 안 보이는 상태가 남는다.
           snap: true,
-          snapSizes: const [_sheetMin, _sheetMid, _sheetMax],
+          snapSizes: [_sheetMinFraction, _sheetMidFraction, _sheetMax],
           builder: (context, scrollController) {
             return _MapLockZone(
               child: Material(
@@ -410,24 +516,39 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(SurbiRadius.card),
                 ),
-                // 시트는 '안에 있는 목록을 끄는 힘'으로 움직인다. 그런데 Flutter의
-                // 기본 설정은 데스크톱에서 마우스 드래그를 스크롤로 인정하지 않아
-                // (관습상 휠로만 스크롤) 마우스로는 시트를 아예 끌 수 없다.
-                // 이 시트에 한해서만 마우스도 드래그 장치로 인정한다.
-                // ⚠️ 앱 전체에 걸면 드롭다운 메뉴 등 다른 목록의 조작감까지 바뀐다.
-                child: ScrollConfiguration(
-                  behavior: const _SheetScrollBehavior(),
-                  child: _buildPanel(
-                    selection,
-                    regionsInGu,
-                    selectedRegion,
-                    scrollController: scrollController,
-                    showHandle: true,
-                    // 좁은 화면에서만 패널 안에도 `‹`를 둔다 —
-                    // 상단 바까지 손을 올리지 않고 되돌릴 수 있게
-                    // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
-                    onStepBack: _stepBackAction(selection),
-                  ),
+                // 손잡이(고정) + 몸통(스크롤) — 형제로 분리해야
+                // 목록을 내려도 손잡이가 안 딸려 올라간다.
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: _toggleSheet,
+                      onVerticalDragUpdate: _dragSheetByHandle,
+                      onVerticalDragEnd: (_) => _snapSheetToNearest(),
+                      behavior: HitTestBehavior.opaque,
+                      child: const SheetHandle(),
+                    ),
+                    Expanded(
+                      // 시트는 '안에 있는 목록을 끄는 힘'으로 움직인다. 그런데 Flutter의
+                      // 기본 설정은 데스크톱에서 마우스 드래그를 스크롤로 인정하지 않아
+                      // (관습상 휠로만 스크롤) 마우스로는 시트를 아예 끌 수 없다.
+                      // 이 시트에 한해서만 마우스도 드래그 장치로 인정한다.
+                      // ⚠️ 앱 전체에 걸면 드롭다운 메뉴 등 다른 목록의 조작감까지 바뀐다.
+                      child: ScrollConfiguration(
+                        behavior: const _SheetScrollBehavior(),
+                        child: _buildPanel(
+                          selection,
+                          regionsInGu,
+                          selectedRegion,
+                          scrollController: scrollController,
+                          // 좁은 화면에서만 패널 안에도 `‹`를 둔다 —
+                          // 상단 바까지 손을 올리지 않고 되돌릴 수 있게
+                          // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
+                          onStepBack: _stepBackAction(selection),
+                          level: _sheetLevel,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -482,8 +603,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     List<Region> regionsInGu,
     Region? selectedRegion, {
     ScrollController? scrollController,
-    bool showHandle = false,
     VoidCallback? onStepBack,
+    required SheetLevel level,
   }) {
     final categories = ref.watch(categoryListProvider);
 
@@ -497,9 +618,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         selection.categoryCode,
       ),
       scrollController: scrollController,
-      showHandle: showHandle,
       onStepBack: onStepBack,
-      onHandleTap: _toggleSheet,
+      level: level,
       onMenuVisibilityChanged: _lockMapWhileMenuOpen,
       // 상단 바와 마찬가지로 **주소만 바꾼다** — 상태는 주소를 따라온다
       onRegionTap: (region) {
