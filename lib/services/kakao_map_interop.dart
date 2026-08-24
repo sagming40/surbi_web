@@ -3,9 +3,16 @@
 import 'dart:js_interop';
 
 /// kakao.maps.LatLng — 위도/경도 좌표 하나를 표현하는 JS 객체
+///
+/// [getLat]·[getLng]는 2026-08-23 추가.
+/// 지금까지는 좌표를 **만들어 넘기기만** 해서 읽을 일이 없었는데, 업소 점을
+/// "동 경계 안쪽에만" 뿌리려면 캐시에 든 경계 좌표를 다시 **읽어야** 한다.
+/// (JS 객체라 Dart에서 그냥은 못 읽는다 — 통로를 뚫어줘야 한다)
 @JS('kakao.maps.LatLng')
 extension type KakaoLatLng._(JSObject _) implements JSObject {
   external factory KakaoLatLng(num lat, num lng);
+  external num getLat();
+  external num getLng();
 }
 
 /// kakao.maps.Map 생성 시 넘겨줄 옵션 (중심 좌표, 확대 레벨)

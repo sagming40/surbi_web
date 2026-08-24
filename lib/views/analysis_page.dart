@@ -30,8 +30,9 @@ class AnalysisPage extends ConsumerWidget {
       backgroundColor: SurbiColors.primary,
       appBar: SurbiAppBar(
         title: '상권 분석',
-        // 뒤로 = 업소 지도. go 통일로 스택이 없으므로 목적지를 직접 지정
-        onBackPressed: () => context.go('/map/$regionCode/$categoryCode'),
+        // 뒤로 = 지도 화면. go 통일로 스택이 없으므로 목적지를 직접 지정
+        // 2026-08-23 — `/map/:동/:업종` 폐기 → 통합 화면 `/explore/:동/:업종`
+        onBackPressed: () => context.go('/explore/$regionCode/$categoryCode'),
       ),
       body: SafeArea(
         child: Padding(

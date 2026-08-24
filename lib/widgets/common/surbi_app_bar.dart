@@ -27,12 +27,14 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
             onBackPressed ??
             () {
               // ⚠️ 2026-08-21 — 화면 이동을 context.go로 통일하면서 스택이 쌓이지
-              // 않게 되어, 이 분기는 사실상 항상 아래쪽(/select)으로 간다.
-              // 상위 경로가 /select가 아닌 화면은 onBackPressed로 목적지를 직접 지정할 것.
+              // 않게 되어, 이 분기는 사실상 항상 아래쪽(/explore)으로 간다.
+              // 상위 경로가 /explore가 아닌 화면은 onBackPressed로 목적지를 직접 지정할 것.
+              //
+              // 2026-08-23 — 통합 화면으로 목적지 변경 (`/select` 폐기)
               if (context.canPop()) {
                 context.pop();
               } else {
-                context.go('/select');
+                context.go('/explore');
               }
             },
       ),
