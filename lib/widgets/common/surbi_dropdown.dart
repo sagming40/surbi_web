@@ -20,6 +20,13 @@ class SurbiDropdown<T> extends StatefulWidget {
   /// 지도 화면에서는 이 신호를 받아 지도의 드래그·휠을 잠그는 데 사용한다.
   final ValueChanged<bool>? onMenuVisibilityChanged;
 
+  /// 닫혀 있을 때의 높이(px). 세로 패딩 14×2 + 화살표 아이콘 24 = 52.
+  ///
+  /// 상수로 뽑은 이유 — 아래 메뉴를 버튼 밑에 붙이는 offset과, 하단 시트의
+  /// mid 높이 계산이 **같은 숫자**를 읽어야 한다. 따로 적어두면 패딩을
+  /// 고쳤을 때 한쪽만 고쳐도 컴파일이 통과해버린다.
+  static const double collapsedHeight = 52;
+
   const SurbiDropdown({
     super.key,
     required this.value,
@@ -82,7 +89,7 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                   : Alignment.topLeft,
               offset: widget.openUpward
                   ? const Offset(0, -8)
-                  : const Offset(0, 52), // 버튼 높이만큼 아래로 (버튼 높이에 맞춰 조정)
+                  : const Offset(0, SurbiDropdown.collapsedHeight),
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(SurbiRadius.card),
