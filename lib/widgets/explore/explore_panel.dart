@@ -141,9 +141,6 @@ class ExplorePanel extends StatelessWidget {
     required Region? selectedRegion,
     required bool hasStepBack,
   }) {
-    // 사용자가 OS에서 글꼴을 키워뒀다면 모든 글자가 그만큼 커진다.
-    // 이걸 빼먹으면 접근성 설정을 켠 사람에게만 헤더가 잘린다.
-    final textScaler = MediaQuery.textScalerOf(context);
     final contentWidth = sheetWidth - panelPadding.horizontal;
 
     // 헤더 글자는 상태마다 다르다 — _contentFor의 분기와 **같은 순서**로 읽는다.
@@ -167,7 +164,7 @@ class ExplorePanel extends StatelessWidget {
           subtitle: subtitle,
           hasStepBack: hasStepBack,
           maxWidth: contentWidth,
-          textScaler: textScaler,
+          context: context,
         );
 
     // mid를 계산할 수 있는 건 ③(동까지 고른 상태)뿐이다.
@@ -178,12 +175,12 @@ class ExplorePanel extends StatelessWidget {
     final midHeight =
         minHeight +
         _gapBeforeMetrics +
-        _SkeletonRow.measure(textScaler: textScaler) * 3 +
+        _SkeletonRow.measure(context) * 3 +
         _gapBeforeApiNote +
         _ApiNote.measure(
           _analysisNote,
           maxWidth: contentWidth,
-          textScaler: textScaler,
+          context: context,
         ) +
         _gapBeforeDivider +
         _dividerHeight +
@@ -192,7 +189,7 @@ class ExplorePanel extends StatelessWidget {
           _pickerTitle,
           _pickerTitleStyle,
           maxWidth: contentWidth,
-          textScaler: textScaler,
+          context: context,
         ) +
         _gapBeforeDropdown +
         SurbiDropdown.collapsedHeight;
@@ -209,16 +206,33 @@ class ExplorePanel extends StatelessWidget {
   /// [TextPainter]는 그 둘을 한 번에 해결한다 — 실제로 배치해보고 결과만 준다.
   /// (옷을 입혀보는 대신 줄자로 재는 것. 2026-08-24에 실패한 Offstage 그림자가
   ///  '입혀보기'였고, 탈의실(부모 제약)이 좁아서 세 번 다 터졌다)
+  ///
+  /// **⚠️ 반드시 테마와 병합해서 재야 한다** (2026-08-25에 배운 것) —
+  /// [Text] 위젯은 우리가 준 스타일만 쓰지 않는다. 주변 [Material]이 깔아둔
+  /// `DefaultTextStyle`(= `theme.textTheme.bodyMedium`)과 **병합**해서 그린다.
+  /// Material 3의 bodyMedium에는 `height: 1.43`과 `letterSpacing: 0.25`가
+  /// 들어 있고, 우리 스타일에 height가 없으므로 그 1.43이 그대로 살아남는다.
+  /// 즉 제목의 실제 줄 높이는 20 × 1.43 = 28.6px인데, 병합 없이 재면 폰트
+  /// 기본값(약 1.17배)인 23.4px이 나와 **한 줄당 5px씩 모자란다.**
+  /// 그만큼 시트가 콘텐츠보다 짧아지고, 휠로 그 몇 px이 스크롤된다.
+  /// (줄자로만 재고 어깨뽕 있는 재킷 위에 입힌 셈)
   static double measureText(
     String text,
     TextStyle style, {
+    required BuildContext context,
     required double maxWidth,
-    required TextScaler textScaler,
   }) {
+    // Text 위젯이 실제로 쓰게 될 스타일을 그대로 재현한다.
+    // Material은 textStyle을 따로 받지 않으면 theme.textTheme.bodyMedium을
+    // DefaultTextStyle로 깔아두므로, 같은 값을 꺼내 병합하면 정확히 일치한다.
+    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+
     final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: TextSpan(text: text, style: base.merge(style)),
       textDirection: TextDirection.ltr,
-      textScaler: textScaler,
+      // 사용자가 OS에서 글꼴을 키워뒀다면 모든 글자가 그만큼 커진다.
+      // 빼먹으면 접근성 설정을 켠 사람에게만 헤더가 잘린다.
+      textScaler: MediaQuery.textScalerOf(context),
     )..layout(maxWidth: maxWidth);
 
     final height = painter.size.height;
@@ -322,7 +336,18 @@ class ExplorePanel extends StatelessWidget {
         hintText: '업종 선택',
         items: categories,
         labelBuilder: (category) => category['name']!,
-        // 하단 시트에서는 위로 펼친다 — 아래에는 펼칠 자리가 없다
+        // 메뉴를 아래로 펼치려면 드롭다운 밑에 280px(+여백 8)가 있어야 한다.
+        //
+        // 시트 위끝에서 드롭다운 아래끝까지는 351px로 **고정**이다 —
+        // 콘텐츠 순서가 그 거리를 정하지, 시트 크기가 정하지 않는다.
+        // 그래서 아래에 남는 공간은 "시트 높이 − 351"이 되고,
+        //   · mid → 시트가 379px이므로 남는 건 28px  → 위로 펼쳐야 한다
+        //   · max → 시트가 화면 전체이므로 넉넉하다   → 아래로 펼친다
+        // 넓은 화면 좌측 패널은 세로가 화면 전체라 항상 아래로 펼친다.
+        //
+        // ⚠️ 시트 영역이 약 640px보다 낮은 기기에서는 max에서도 메뉴 아래쪽이
+        //    잘릴 수 있다(640 − 351 = 289 ≈ 280+8). 그때는 이 판단을
+        //    level이 아니라 실제 남는 공간으로 계산해 넘겨야 한다.
         openUpward: isBottomSheet && level != SheetLevel.max,
         onMenuVisibilityChanged: onMenuVisibilityChanged,
         onChanged: onCategoryChanged,
@@ -451,7 +476,7 @@ class _PanelHeader extends StatelessWidget {
     String? subtitle,
     required bool hasStepBack,
     required double maxWidth,
-    required TextScaler textScaler,
+    required BuildContext context,
   }) {
     // `‹`가 붙으면 글자가 쓸 수 있는 폭이 그만큼 줄어든다 → 줄바꿈이 더 일찍 온다
     final textWidth = hasStepBack
@@ -462,7 +487,7 @@ class _PanelHeader extends StatelessWidget {
       title,
       titleStyle,
       maxWidth: textWidth,
-      textScaler: textScaler,
+      context: context,
     );
     if (subtitle != null) {
       textsHeight +=
@@ -471,7 +496,7 @@ class _PanelHeader extends StatelessWidget {
             subtitle,
             subtitleStyle,
             maxWidth: textWidth,
-            textScaler: textScaler,
+            context: context,
           );
     }
 
@@ -542,13 +567,13 @@ class _ApiNote extends StatelessWidget {
   static double measure(
     String text, {
     required double maxWidth,
-    required TextScaler textScaler,
+    required BuildContext context,
   }) {
     return ExplorePanel.measureText(
       text,
       style,
       maxWidth: maxWidth,
-      textScaler: textScaler,
+      context: context,
     );
   }
 
@@ -643,12 +668,12 @@ class _SkeletonRow extends StatelessWidget {
   ///
   /// 라벨을 인자로 받지 않는 이유 — 지표 라벨은 전부 같은 스타일의 한 줄짜리
   /// 한글이라 글자가 달라도 높이가 같다. 대표로 하나만 재면 충분하다.
-  static double measure({required TextScaler textScaler}) {
+  static double measure(BuildContext context) {
     final labelHeight = ExplorePanel.measureText(
       '유동인구',
       labelStyle,
       maxWidth: labelWidth,
-      textScaler: textScaler,
+      context: context,
     );
     // Row는 더 큰 쪽을 따른다 — 글자가 작아도 막대(12px)보다 낮아질 수는 없다
     return math.max(labelHeight, barHeight) + bottomGap;
