@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart'; // PointerDeviceKind — 시트 마우�
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart'; // 지도 위 UI가 지도 DOM을 가리게
 import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/models/region.dart';
 import 'package:surbi_web/providers/region_provider.dart';
@@ -629,47 +630,63 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           snap: true,
           snapSizes: _sheetStops,
           builder: (context, scrollController) {
-            return _MapLockZone(
-              child: Material(
-                color: SurbiColors.primary,
-                elevation: 8,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(SurbiRadius.card),
-                ),
-                // 손잡이(고정) + 몸통(스크롤) — 형제로 분리해야
-                // 목록을 내려도 손잡이가 안 딸려 올라간다.
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: _toggleSheet,
-                      onVerticalDragUpdate: _dragSheetByHandle,
-                      onVerticalDragEnd: (_) => _snapSheetToNearest(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const SheetHandle(),
-                    ),
-                    Expanded(
-                      // 시트는 '안에 있는 목록을 끄는 힘'으로 움직인다. 그런데 Flutter의
-                      // 기본 설정은 데스크톱에서 마우스 드래그를 스크롤로 인정하지 않아
-                      // (관습상 휠로만 스크롤) 마우스로는 시트를 아예 끌 수 없다.
-                      // 이 시트에 한해서만 마우스도 드래그 장치로 인정한다.
-                      // ⚠️ 앱 전체에 걸면 드롭다운 메뉴 등 다른 목록의 조작감까지 바뀐다.
-                      child: ScrollConfiguration(
-                        behavior: const _SheetScrollBehavior(),
-                        child: _buildPanel(
-                          selection,
-                          regionsInGu,
-                          selectedRegion,
-                          scrollController: scrollController,
-                          // 좁은 화면에서만 패널 안에도 `‹`를 둔다 —
-                          // 상단 바까지 손을 올리지 않고 되돌릴 수 있게
-                          // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
-                          onStepBack: _stepBackAction(selection),
-                          level: _sheetLevel,
-                          isBottomSheet: true,
+            // ⚠️ PointerInterceptor를 빼지 말 것 (2026-08-25).
+            //
+            // 지도는 Flutter가 그린 그림이 아니라 진짜 브라우저 DOM(Platform View)이다.
+            // 그 위에 Flutter 위젯을 얹어도 **브라우저 입장에서는 지도가 여전히 거기
+            // 있다.** 그래서 시트 위에서 굴린 휠 이벤트 하나가 지도 DOM과 Flutter
+            // 양쪽에 배달돼, 시트를 스크롤하면서 지도까지 같이 확대됐다.
+            //
+            // 아래 _MapLockZone은 이 경쟁을 "지도 쪽을 잠가서" 피하는 방식인데,
+            // 한 박자 늦는다 — 카카오맵 DOM의 리스너가 먼저 실행되고 Flutter가
+            // 그 이벤트를 위젯에 전달하는 건 그다음이라, **첫 틱은 항상 샌다.**
+            //
+            // PointerInterceptor는 시트 뒤에 투명한 DOM 조각을 깔아
+            // 브라우저 단계에서 지도에 닿지 못하게 막는다. 경쟁 자체가 사라진다.
+            // (_MapLockZone은 드롭다운 오버레이 등 다른 경로를 위해 남겨둔다)
+            return PointerInterceptor(
+              child: _MapLockZone(
+                child: Material(
+                  color: SurbiColors.primary,
+                  elevation: 8,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(SurbiRadius.card),
+                  ),
+                  // 손잡이(고정) + 몸통(스크롤) — 형제로 분리해야
+                  // 목록을 내려도 손잡이가 안 딸려 올라간다.
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleSheet,
+                        onVerticalDragUpdate: _dragSheetByHandle,
+                        onVerticalDragEnd: (_) => _snapSheetToNearest(),
+                        behavior: HitTestBehavior.opaque,
+                        child: const SheetHandle(),
+                      ),
+                      Expanded(
+                        // 시트는 '안에 있는 목록을 끄는 힘'으로 움직인다. 그런데 Flutter의
+                        // 기본 설정은 데스크톱에서 마우스 드래그를 스크롤로 인정하지 않아
+                        // (관습상 휠로만 스크롤) 마우스로는 시트를 아예 끌 수 없다.
+                        // 이 시트에 한해서만 마우스도 드래그 장치로 인정한다.
+                        // ⚠️ 앱 전체에 걸면 드롭다운 메뉴 등 다른 목록의 조작감까지 바뀐다.
+                        child: ScrollConfiguration(
+                          behavior: const _SheetScrollBehavior(),
+                          child: _buildPanel(
+                            selection,
+                            regionsInGu,
+                            selectedRegion,
+                            scrollController: scrollController,
+                            // 좁은 화면에서만 패널 안에도 `‹`를 둔다 —
+                            // 상단 바까지 손을 올리지 않고 되돌릴 수 있게
+                            // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
+                            onStepBack: _stepBackAction(selection),
+                            level: _sheetLevel,
+                            isBottomSheet: true,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
