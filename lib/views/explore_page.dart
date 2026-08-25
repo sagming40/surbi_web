@@ -38,10 +38,16 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   // 8/24 회의 — 최대치는 상단 바 바로 밑까지 다 덮어도 된다.
   static const double _sheetMax = 1.0;
 
-  // min·mid는 아직 손으로 정한 임시 비율이다.
-  // Step 2에서 ExplorePanel이 콘텐츠 높이를 계산해주면 그 값으로 대체된다.
+  /// ①(안내)·②(동 목록)처럼 **콘텐츠 높이를 계산할 수 없는** 상태에서 mid가 설 자리.
+  ///
+  /// 그 둘은 스크롤되는 덩어리라 "여기까지가 한 화면"이라는 자연스러운 경계가 없다.
+  /// 경계가 없으면 잴 것도 없으므로, 그때만 비율로 돌아간다.
+  static const double _midFallbackFraction = 0.5;
+
+  // min·mid는 매 build에서 _applyStops가 콘텐츠 높이로부터 다시 계산한다.
+  // 여기 값은 첫 build 전 한순간만 쓰이는 씨앗값이다.
   double _sheetMinFraction = 0.12;
-  double _sheetMidFraction = 0.32;
+  double _sheetMidFraction = 0.52;
 
   /// 지금 시트가 셋 중 어디에 가장 가까운지 — ExplorePanel에게
   /// "얼마나 펼쳐졌으니 뭘 보여줄지" 알려주는 값이다.
@@ -81,37 +87,62 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     super.dispose();
   }
 
-  // mid·min이 이제 상수가 아니라 매번 값이 갱신되므로 static const로 못 둔다.
-  List<double> get _sheetTapCycle => [
+  /// 시트가 멈춰 설 세 자리 — **반드시 오름차순**이어야 한다.
+  /// 아래 _toggleSheet가 "인덱스 +1 = 더 크게"를 전제로 계산하기 때문이다.
+  /// min·mid는 값이 매번 갱신되므로 static const로 둘 수 없다.
+  List<double> get _sheetStops => [
+    _sheetMinFraction,
     _sheetMidFraction,
     _sheetMax,
-    _sheetMinFraction,
   ];
 
-  /// 손잡이를 탭하면 세 자리를 순서대로 순환한다.
+  /// 탭이 향하는 방향. +1이면 위로, -1이면 아래로.
+  int _tapDirection = 1;
+
+  double _fractionForLevel(SheetLevel level) {
+    switch (level) {
+      case SheetLevel.min:
+        return _sheetMinFraction;
+      case SheetLevel.mid:
+        return _sheetMidFraction;
+      case SheetLevel.max:
+        return _sheetMax;
+    }
+  }
+
+  /// 손잡이를 탭하면 min → mid → max → mid → min 순서로 **왕복**한다.
   ///
-  /// "가장 가까운 다음 자리"처럼 매번 계산하지 않는 이유 — `snap: true`가
-  /// 걸려 있어 손을 떼면 시트는 항상 세 자리 중 하나에 정확히 서 있다.
-  /// 즉 탭하는 시점엔 애매한 위치가 존재하지 않으므로, 고정 순서로 돌아도
-  /// 계산해서 돌리는 것과 결과가 같다 — 그럴 거면 고정 순서가 더 단순하다.
+  /// 왜 방향을 필드로 들고 있나 — 위치만으로는 mid에서 어디로 갈지 정할 수
+  /// 없다. mid는 올라가는 길목이기도 하고 내려오는 길목이기도 해서, "지금
+  /// 올라가는 중인지"를 따로 기억해야 한다.
+  /// (회전문이 아니라 엘리베이터다. 회전문은 위치만 알면 되지만 엘리베이터는
+  ///  방향을 안다)
   void _toggleSheet() {
     if (!_sheetController.isAttached) return;
 
+    final stops = _sheetStops;
     final current = _sheetController.size;
-    final cycle = _sheetTapCycle;
-    var closestIndex = 0;
+
+    // 지금 어느 자리에 가장 가까이 서 있나
+    var index = 0;
     var closestDistance = double.infinity;
-    for (var i = 0; i < cycle.length; i++) {
-      final distance = (current - cycle[i]).abs();
+    for (var i = 0; i < stops.length; i++) {
+      final distance = (current - stops[i]).abs();
       if (distance < closestDistance) {
         closestDistance = distance;
-        closestIndex = i;
+        index = i;
       }
     }
-    final next = cycle[(closestIndex + 1) % cycle.length];
+
+    // 양 끝에 닿았으면 방향을 뒤집는다.
+    // ⚠️ 저장된 방향을 그냥 믿으면 안 된다 — 드래그로 max까지 올려둔 상태에서
+    //    방향이 +1로 남아 있으면 stops[3]을 찾다가 범위를 벗어난다.
+    //    탭할 때마다 끝인지 다시 확인하므로 드래그와 탭이 어긋나지 않는다.
+    if (index == 0) _tapDirection = 1;
+    if (index == stops.length - 1) _tapDirection = -1;
 
     _sheetController.animateTo(
-      next,
+      stops[index + _tapDirection],
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
     );
@@ -146,7 +177,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   void _snapSheetToNearest() {
     if (!_sheetController.isAttached) return;
 
-    final stops = [_sheetMinFraction, _sheetMidFraction, _sheetMax];
+    final stops = _sheetStops;
     final current = _sheetController.size;
     final nearest = stops.reduce(
       (a, b) => (current - a).abs() < (current - b).abs() ? a : b,
@@ -168,21 +199,97 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   }
 
   SheetLevel _levelForSize(double size) {
-    final candidates = {
-      SheetLevel.min: _sheetMinFraction,
-      SheetLevel.mid: _sheetMidFraction,
-      SheetLevel.max: _sheetMax,
-    };
     var closest = SheetLevel.mid;
     var closestDistance = double.infinity;
-    candidates.forEach((level, value) {
-      final distance = (size - value).abs();
+    for (final level in SheetLevel.values) {
+      final distance = (size - _fractionForLevel(level)).abs();
       if (distance < closestDistance) {
         closestDistance = distance;
         closest = level;
       }
-    });
+    }
     return closest;
+  }
+
+  /// min·mid가 설 자리를 **콘텐츠 높이로부터 다시 계산한다.** 매 build마다 불린다.
+  ///
+  /// ## 왜 비율이 아니라 픽셀인가
+  /// 글자 크기는 화면 크기를 따라 커지지 않는데 비율만 화면을 따라간다.
+  /// `min = 0.15` 같은 고정 비율은 작은 폰에서 헤더를 자르고 큰 화면에서는
+  /// 유동인구까지 삐져나온다. "이 내용만 딱 보이게"가 목적이면 픽셀이 맞다.
+  ///
+  /// ## 왜 재지 않고 계산하는가 (2026-08-24 실패에서 배운 것)
+  /// 화면 밖에 그림자 복사본(Offstage)을 그려 실제 높이를 재려 했으나 세 번
+  /// 연속 실패했다 — 그림자도 위젯 트리 안에 있는 한 부모의 크기 제약을
+  /// 벗어날 수 없기 때문이다. 재려던 값은 애초에 전부 우리가 코드에 적어둔
+  /// 상수이므로, 그리지 않고 더하는 편이 가볍고 안전하다.
+  ///
+  /// ## 틀려도 안 죽는다
+  /// 시트 안은 ListView 한 겹뿐이라, 계산이 작으면 살짝 스크롤되고 크면 살짝
+  /// 여백이 남을 뿐 **overflow가 날 구조가 아니다.**
+  void _applyStops({
+    required BuildContext context,
+    required double sheetWidth,
+    required double areaHeight,
+    required RegionSelection selection,
+    required List<Region> regionsInGu,
+    required Region? selectedRegion,
+  }) {
+    if (areaHeight <= 0 || sheetWidth <= 0) return;
+
+    final heights = ExplorePanel.measureStops(
+      context: context,
+      sheetWidth: sheetWidth,
+      selectedGu: selection.selectedGu,
+      regionCountInGu: regionsInGu.length,
+      selectedRegion: selectedRegion,
+      hasStepBack: _stepBackAction(selection) != null,
+    );
+
+    // 손잡이는 패널 밖이지만 시트 안이다 — 콘텐츠 높이에 반드시 더해야 한다.
+    // (빼먹으면 min에서 헤더가 딱 손잡이 높이만큼 잘린다)
+    double toFraction(double contentHeight) =>
+        (SheetHandle.height + contentHeight) / areaHeight;
+
+    // ⚠️ 세 자리는 **서로 겹치면 안 된다.** DraggableScrollableSheet의 snapSizes는
+    //    "오름차순이고 중복이 없을 것"을 assert로 강제한다. 화면이 아주 낮으면
+    //    (가로로 눕힌 폰 등) 계산된 mid가 1.0을 넘어 max와 같은 자리로 눌리는데,
+    //    그 순간 앱이 죽는다. 그래서 최소 간격을 강제로 벌려둔다.
+    const gap = 0.01;
+    final nextMin = toFraction(heights.min).clamp(0.05, _sheetMax - 2 * gap);
+    final nextMid = heights.mid == null
+        ? _midFallbackFraction.clamp(nextMin + gap, _sheetMax - gap)
+        : toFraction(heights.mid!).clamp(nextMin + gap, _sheetMax - gap);
+
+    // 소수점 오차 수준의 흔들림은 무시한다. 매번 "바뀌었다"로 보면 아래
+    // 재정렬이 프레임마다 걸려 시트가 미세하게 떨린다.
+    const epsilon = 0.001;
+    final changed =
+        (nextMin - _sheetMinFraction).abs() > epsilon ||
+        (nextMid - _sheetMidFraction).abs() > epsilon;
+
+    _sheetMinFraction = nextMin;
+    _sheetMidFraction = nextMid;
+    if (!changed) return;
+
+    // 정지 위치가 바뀌었으면 지금 서 있던 자리도 함께 옮긴다.
+    // (동을 바꿔 헤더 길이가 달라졌거나, 창 크기가 바뀐 경우)
+    // 안 옮기면 min에 서 있었는데 새 min은 저 아래라 어중간한 높이에 뜬 채 남는다.
+    //
+    // ⚠️ 여기는 build 도중이다. 지금 당장 컨트롤러를 만지면 이미 진행 중인
+    //    이 프레임 위에 레이아웃 요청이 겹쳐
+    //    "Tried to build dirty widget in the wrong build scope"가 난다.
+    //    (2026-08-24에 실제로 겪은 예외) 프레임이 끝난 뒤로 미룬다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      final target = _fractionForLevel(_sheetLevel);
+      if ((_sheetController.size - target).abs() < epsilon) return;
+      _sheetController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   /// 지금 선택 상태를 지도에 그대로 반영한다 (지도 준비 시 1회).
@@ -430,6 +537,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           selection,
                           regionsInGu,
                           selectedRegion,
+                          availableWidth: constraints.maxWidth,
                           availableHeight: constraints.maxHeight,
                         );
                 },
@@ -492,9 +600,21 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     RegionSelection selection,
     List<Region> regionsInGu,
     Region? selectedRegion, {
+    required double availableWidth,
     required double availableHeight,
   }) {
     _sheetAreaHeight = availableHeight; // 손잡이 드래그 계산에 쓴다
+
+    // 시트를 그리기 **전에** 정지 위치를 확정한다. 아래 DraggableScrollableSheet가
+    // initialChildSize·minChildSize·snapSizes를 지금 값으로 읽어가기 때문이다.
+    _applyStops(
+      context: context,
+      sheetWidth: availableWidth,
+      areaHeight: availableHeight,
+      selection: selection,
+      regionsInGu: regionsInGu,
+      selectedRegion: selectedRegion,
+    );
 
     return Stack(
       children: [
@@ -507,7 +627,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           // 손을 떼면 가장 가까운 자리로 착 붙는다. 없으면 어중간한 높이에
           // 멈춰 서서 지도도 패널도 제대로 안 보이는 상태가 남는다.
           snap: true,
-          snapSizes: [_sheetMinFraction, _sheetMidFraction, _sheetMax],
+          snapSizes: _sheetStops,
           builder: (context, scrollController) {
             return _MapLockZone(
               child: Material(
@@ -545,6 +665,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           // (넓은 화면은 넘기지 않으므로 패널에 안 그려진다)
                           onStepBack: _stepBackAction(selection),
                           level: _sheetLevel,
+                          isBottomSheet: true,
                         ),
                       ),
                     ),
@@ -605,6 +726,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     ScrollController? scrollController,
     VoidCallback? onStepBack,
     required SheetLevel level,
+    bool isBottomSheet = false,
   }) {
     final categories = ref.watch(categoryListProvider);
 
@@ -620,6 +742,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
       scrollController: scrollController,
       onStepBack: onStepBack,
       level: level,
+      isBottomSheet: isBottomSheet,
       onMenuVisibilityChanged: _lockMapWhileMenuOpen,
       // 상단 바와 마찬가지로 **주소만 바꾼다** — 상태는 주소를 따라온다
       onRegionTap: (region) {

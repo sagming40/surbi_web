@@ -1,5 +1,6 @@
 // lib/widgets/explore/explore_panel.dart
 
+import 'dart:math' as math; // max — 헤더 높이 계산
 import 'dart:ui' as ui; // ImageFilter — 업종 미선택 카드 블러
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,18 @@ import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
 /// 넓은 화면(좌측 고정 패널)은 항상 [SheetLevel.max]로 취급한다.
 enum SheetLevel { min, mid, max }
 
+/// 시트가 멈춰 설 두 자리의 **콘텐츠 높이(px)**.
+///
+/// [mid]가 null이면 "계산으로는 정할 수 없다"는 뜻이다. ①(안내)·②(동 목록)은
+/// 스크롤되는 덩어리라 "여기까지가 한 화면"이라는 자연스러운 경계가 없다.
+/// 경계가 없으면 잴 것도 없으므로, 그때는 부모가 고정 비율로 처리한다.
+class SheetContentHeights {
+  final double min;
+  final double? mid;
+
+  const SheetContentHeights({required this.min, this.mid});
+}
+
 /// 통합 지도 화면의 패널 — 넓은 화면에서는 좌측 고정, 좁은 화면에서는 하단 시트
 ///
 /// **선택이 어디까지 됐는지에 따라 내용이 달라진다.**
@@ -21,8 +34,8 @@ enum SheetLevel { min, mid, max }
 /// **거기에 더해 [level]이 "얼마나 보여줄지"를 가른다** (2026-08-24 회의 —
 /// 카카오맵 실측으로 확인).
 ///   min → 헤더만 (①②③ 공통)
-///   mid → ③은 헤더+지역 지표 / ①②는 전체 (스크롤로 이어봄)
-///   max → 전체
+///   mid → ③은 헤더+지역 지표+업종 드롭다운 / ①②는 전체
+///   max → 전부 (업종 지표 + 점수 버튼까지)
 ///
 /// **min이 세 상태 모두 "헤더만"인 이유** — ②는 짧지 않다. 강남구는 행정동이
 /// 22개다. 목록 전체를 min의 기준으로 삼으면 동이 많은 구에서는 시트가 아예
@@ -47,6 +60,11 @@ class ExplorePanel extends StatelessWidget {
   /// 지금 시트가 어디까지 펼쳐져 있는지. 넓은 화면은 항상 [SheetLevel.max].
   final SheetLevel level;
 
+  /// 이 패널이 **하단 시트 안**에 있는지. 넓은 화면의 좌측 고정 패널이면 false.
+  ///
+  /// 업종 드롭다운 메뉴를 어느 쪽으로 펼칠지가 [level]과 함께 여기서 갈린다.
+  final bool isBottomSheet;
+
   const ExplorePanel({
     super.key,
     required this.selectedGu,
@@ -58,14 +76,42 @@ class ExplorePanel extends StatelessWidget {
     required this.onRegionTap,
     required this.onScoreTap,
     required this.level,
+    this.isBottomSheet = false,
     this.onMenuVisibilityChanged,
     this.onStepBack,
     this.scrollController,
   });
 
-  /// 패널 안쪽 여백. 시트 높이 계산(Step 2)에서도 이 값을 그대로 읽으므로
-  /// **public**이다 — 같은 숫자를 두 군데 적으면 언젠가 어긋난다.
+  // ═══════════════════════════════════════════════════════════
+  // 레이아웃 상수 · 문구
+  //
+  // **아래 build()와 measureStops()가 이 값들을 함께 읽는다.**
+  // 같은 숫자를 두 군데에 따로 적어두면, 여백 하나를 20→24로 고쳤을 때
+  // 한쪽만 고쳐도 컴파일이 통과해버린다. 상수 하나를 공유하면 어긋나는 것
+  // 자체가 불가능해진다. (2026-08-24 — §5 계산식의 유일한 단점이 이것이었다)
+  // ═══════════════════════════════════════════════════════════
+
   static const EdgeInsets panelPadding = EdgeInsets.fromLTRB(20, 8, 20, 28);
+
+  static const double _gapBeforeMetrics = 20;
+  static const double _gapBeforeApiNote = 4;
+  static const double _gapBeforeDivider = 24;
+  static const double _dividerHeight = 1;
+  static const double _gapAfterDivider = 20;
+  static const double _gapBeforeDropdown = 10;
+
+  static const TextStyle _pickerTitleStyle = TextStyle(
+    color: SurbiColors.accent,
+    fontSize: 15,
+    fontWeight: FontWeight.bold,
+  );
+
+  static const String _emptyTitle = '어느 동네가 좋을까요?';
+  static const String _analysisNote = 'GET /api/analysis 연동 후 실제 값이 표시됩니다';
+  static const String _pickerTitle = '어떤 업종으로 창업하시나요?';
+
+  static String _regionCountSubtitle(int count) => '행정동 $count개';
+  static String _guSubtitle(String guName) => '서울특별시 · $guName';
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +122,114 @@ class ExplorePanel extends StatelessWidget {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 높이 계산 — 그리지 않고 더한다
+  // ═══════════════════════════════════════════════════════════
+
+  /// min·mid 상태의 콘텐츠 높이(px)를 **화면에 그리지 않고** 계산한다.
+  ///
+  /// 손잡이(SheetHandle)는 이 패널 밖이라 여기 포함되지 않는다 —
+  /// 부르는 쪽이 더해야 한다.
+  ///
+  /// [sheetWidth]가 필요한 이유: 폭이 좁으면 글자가 줄바꿈돼 줄 수가 달라진다.
+  /// 높이는 폭의 함수다.
+  static SheetContentHeights measureStops({
+    required BuildContext context,
+    required double sheetWidth,
+    required String? selectedGu,
+    required int regionCountInGu,
+    required Region? selectedRegion,
+    required bool hasStepBack,
+  }) {
+    // 사용자가 OS에서 글꼴을 키워뒀다면 모든 글자가 그만큼 커진다.
+    // 이걸 빼먹으면 접근성 설정을 켠 사람에게만 헤더가 잘린다.
+    final textScaler = MediaQuery.textScalerOf(context);
+    final contentWidth = sheetWidth - panelPadding.horizontal;
+
+    // 헤더 글자는 상태마다 다르다 — _contentFor의 분기와 **같은 순서**로 읽는다.
+    final String title;
+    final String? subtitle;
+    if (selectedGu == null) {
+      title = _emptyTitle;
+      subtitle = null;
+    } else if (selectedRegion == null) {
+      title = selectedGu;
+      subtitle = _regionCountSubtitle(regionCountInGu);
+    } else {
+      title = selectedRegion.regionName;
+      subtitle = _guSubtitle(selectedRegion.guName);
+    }
+
+    final minHeight =
+        panelPadding.vertical +
+        _PanelHeader.measure(
+          title: title,
+          subtitle: subtitle,
+          hasStepBack: hasStepBack,
+          maxWidth: contentWidth,
+          textScaler: textScaler,
+        );
+
+    // mid를 계산할 수 있는 건 ③(동까지 고른 상태)뿐이다.
+    if (selectedGu == null || selectedRegion == null) {
+      return SheetContentHeights(min: minHeight);
+    }
+
+    final midHeight =
+        minHeight +
+        _gapBeforeMetrics +
+        _SkeletonRow.measure(textScaler: textScaler) * 3 +
+        _gapBeforeApiNote +
+        _ApiNote.measure(
+          _analysisNote,
+          maxWidth: contentWidth,
+          textScaler: textScaler,
+        ) +
+        _gapBeforeDivider +
+        _dividerHeight +
+        _gapAfterDivider +
+        measureText(
+          _pickerTitle,
+          _pickerTitleStyle,
+          maxWidth: contentWidth,
+          textScaler: textScaler,
+        ) +
+        _gapBeforeDropdown +
+        SurbiDropdown.collapsedHeight;
+
+    return SheetContentHeights(min: minHeight, mid: midHeight);
+  }
+
+  /// 글자를 화면에 그리지 않고 "이 폭에 넣으면 몇 픽셀 높이인가"만 잰다.
+  ///
+  /// **왜 fontSize를 그대로 쓰면 안 되나** — `fontSize: 20`은 글자 크기지
+  /// 줄 높이가 아니다. 실제 줄 높이는 폰트가 정하고, 한글은 폴백 폰트를 타서
+  /// 대략 fontSize의 1.15~1.4배로 폰트마다 다르다. 게다가 폭이 좁으면
+  /// 줄바꿈이 일어나 줄 수 자체가 달라진다.
+  /// [TextPainter]는 그 둘을 한 번에 해결한다 — 실제로 배치해보고 결과만 준다.
+  /// (옷을 입혀보는 대신 줄자로 재는 것. 2026-08-24에 실패한 Offstage 그림자가
+  ///  '입혀보기'였고, 탈의실(부모 제약)이 좁아서 세 번 다 터졌다)
+  static double measureText(
+    String text,
+    TextStyle style, {
+    required double maxWidth,
+    required TextScaler textScaler,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+    )..layout(maxWidth: maxWidth);
+
+    final height = painter.size.height;
+    painter.dispose(); // 네이티브 자원을 쓰므로 다 쓰면 반드시 놓아준다
+    return height;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 화면 내용
+  // ═══════════════════════════════════════════════════════════
+
   List<Widget> _contentFor(SheetLevel level) {
     if (selectedGu == null) return _emptyState(level);
     if (selectedRegion == null) return _regionListState(level);
@@ -84,7 +238,7 @@ class ExplorePanel extends StatelessWidget {
 
   // ── ① 아무것도 안 고른 상태 ─────────────────────
   List<Widget> _emptyState(SheetLevel level) {
-    const header = _PanelHeader('어느 동네가 좋을까요?');
+    const header = _PanelHeader(_emptyTitle);
     if (level == SheetLevel.min) return const [header];
 
     return const [
@@ -109,7 +263,7 @@ class ExplorePanel extends StatelessWidget {
   List<Widget> _regionListState(SheetLevel level) {
     final header = _PanelHeader(
       selectedGu!,
-      subtitle: '행정동 ${regionsInGu.length}개',
+      subtitle: _regionCountSubtitle(regionsInGu.length),
       onStepBack: onStepBack,
     );
     if (level == SheetLevel.min) return [header];
@@ -125,52 +279,65 @@ class ExplorePanel extends StatelessWidget {
   }
 
   // ── ③ 동까지 고른 상태 — level에 따라 범위가 갈린다 ──
+  //
+  // **계단식으로 쌓는다.** 각 단계는 "이전 단계 + 한 덩어리"다.
+  // 단계마다 목록을 따로 적으면 항목 하나 고칠 때 세 군데를 고쳐야 하고,
+  // 그중 하나를 빠뜨려도 컴파일은 통과한다.
   List<Widget> _regionDetailState(SheetLevel level) {
     final region = selectedRegion!;
 
     final header = _PanelHeader(
       region.regionName,
-      subtitle: '서울특별시 · ${region.guName}',
+      subtitle: _guSubtitle(region.guName),
       onStepBack: onStepBack,
     );
 
     if (level == SheetLevel.min) return [header];
 
+    // 지역 지표 — 업종과 무관하게 그 동네 자체의 성격
     final regionMetrics = [
-      const SizedBox(height: 20),
+      const SizedBox(height: _gapBeforeMetrics),
       const _SkeletonRow(label: '유동인구', widthFactor: 0.55),
       const _SkeletonRow(label: '상권변화', widthFactor: 0.35),
       const _SkeletonRow(label: '임대료', widthFactor: 0.45),
-      const SizedBox(height: 4),
-      const _ApiNote('GET /api/analysis 연동 후 실제 값이 표시됩니다'),
+      const SizedBox(height: _gapBeforeApiNote),
+      const _ApiNote(_analysisNote),
     ];
 
-    if (level == SheetLevel.mid) return [header, ...regionMetrics];
-
-    // max — 업종 선택까지 전부
-    return [
-      header,
-      ...regionMetrics,
-      const SizedBox(height: 24),
-      const Divider(height: 1, color: SurbiColors.placeholderGray),
-      const SizedBox(height: 20),
-      const Text(
-        '어떤 업종으로 창업하시나요?',
-        style: TextStyle(
-          color: SurbiColors.accent,
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 10),
+    // 업종 고르는 자리.
+    //
+    // **mid에 포함시킨 이유** — DraggableScrollableSheet은 시트가 max가 아닌
+    // 동안에는 목록 스크롤보다 시트 확대를 항상 우선한다(applyUserOffset).
+    // 즉 "mid에서 스크롤해 드롭다운까지 내려가기"는 구조적으로 불가능하다.
+    // 드롭다운을 max에만 두면 업종 하나 고르려고 지도를 100% 가려야 한다.
+    // 고르는 행위는 '판단' 단계이므로 지도가 보이는 mid에 있어야 맞다.
+    final categoryPicker = [
+      const SizedBox(height: _gapBeforeDivider),
+      const Divider(height: _dividerHeight, color: SurbiColors.placeholderGray),
+      const SizedBox(height: _gapAfterDivider),
+      const Text(_pickerTitle, style: _pickerTitleStyle),
+      const SizedBox(height: _gapBeforeDropdown),
       SurbiDropdown<Map<String, String>>(
         value: selectedCategory,
         hintText: '업종 선택',
         items: categories,
         labelBuilder: (category) => category['name']!,
+        // 하단 시트에서는 위로 펼친다 — 아래에는 펼칠 자리가 없다
+        openUpward: isBottomSheet && level != SheetLevel.max,
         onMenuVisibilityChanged: onMenuVisibilityChanged,
         onChanged: onCategoryChanged,
       ),
+    ];
+
+    if (level == SheetLevel.mid) {
+      return [header, ...regionMetrics, ...categoryPicker];
+    }
+
+    // max — 고른 결과(업종 지표)와 다음 행동(점수 보기)까지
+    return [
+      header,
+      ...regionMetrics,
+      ...categoryPicker,
       const SizedBox(height: 16),
       _CategoryMetrics(isLocked: selectedCategory == null),
       const SizedBox(height: 28),
@@ -260,6 +427,59 @@ class _PanelHeader extends StatelessWidget {
   /// 버튼의 한 변. 눈에 보이는 아이콘은 26px이지만 누를 수 있는 영역은 44px —
   /// 손가락 끝은 마우스 커서만큼 정확하지 않다. (SheetHandle과 같은 원칙)
   static const double _tapSize = 44;
+  static const double _gapAfterButton = 4;
+  static const double _gapBetweenTexts = 6;
+
+  /// 위 여백 8 = (버튼 44 ÷ 2) − (제목 한 줄 높이 ≈ 28 ÷ 2)
+  /// 아이콘 중심과 제목 첫 줄의 중심을 같은 높이에 맞춘다
+  static const double _topAlignGap = 8;
+
+  static const TextStyle titleStyle = TextStyle(
+    color: SurbiColors.accent,
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+  );
+  static const TextStyle subtitleStyle = TextStyle(
+    color: SurbiColors.textGray,
+    fontSize: 13,
+  );
+
+  /// 이 헤더가 차지할 높이(px)를 그리지 않고 계산한다. build()와 **같은 상수**를
+  /// 읽으므로, 여백이나 글자 크기를 고치면 계산식도 자동으로 따라온다.
+  static double measure({
+    required String title,
+    String? subtitle,
+    required bool hasStepBack,
+    required double maxWidth,
+    required TextScaler textScaler,
+  }) {
+    // `‹`가 붙으면 글자가 쓸 수 있는 폭이 그만큼 줄어든다 → 줄바꿈이 더 일찍 온다
+    final textWidth = hasStepBack
+        ? maxWidth - _tapSize - _gapAfterButton
+        : maxWidth;
+
+    var textsHeight = ExplorePanel.measureText(
+      title,
+      titleStyle,
+      maxWidth: textWidth,
+      textScaler: textScaler,
+    );
+    if (subtitle != null) {
+      textsHeight +=
+          _gapBetweenTexts +
+          ExplorePanel.measureText(
+            subtitle,
+            subtitleStyle,
+            maxWidth: textWidth,
+            textScaler: textScaler,
+          );
+    }
+
+    if (!hasStepBack) return textsHeight;
+
+    // Row는 자식 중 가장 큰 것을 따른다 — 44짜리 버튼이 글자보다 클 수 있다
+    return math.max(_tapSize, _topAlignGap + textsHeight);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -267,20 +487,10 @@ class _PanelHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: SurbiColors.accent,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(title, style: titleStyle),
         if (subtitle != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            subtitle!,
-            style: const TextStyle(color: SurbiColors.textGray, fontSize: 13),
-          ),
+          const SizedBox(height: _gapBetweenTexts),
+          Text(subtitle!, style: subtitleStyle),
         ],
       ],
     );
@@ -307,11 +517,12 @@ class _PanelHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 4),
-        // 위 여백 8 = (버튼 44 ÷ 2) − (제목 한 줄 높이 ≈ 28 ÷ 2)
-        // 아이콘 중심과 제목 첫 줄의 중심을 같은 높이에 맞춘다
+        const SizedBox(width: _gapAfterButton),
         Expanded(
-          child: Padding(padding: const EdgeInsets.only(top: 8), child: texts),
+          child: Padding(
+            padding: const EdgeInsets.only(top: _topAlignGap),
+            child: texts,
+          ),
         ),
       ],
     );
@@ -322,13 +533,27 @@ class _ApiNote extends StatelessWidget {
   final String text;
   const _ApiNote(this.text);
 
-  @override
-  Widget build(BuildContext context) {
-    return Text(
+  static const TextStyle style = TextStyle(
+    color: SurbiColors.textGray,
+    fontSize: 12,
+  );
+
+  /// 이 문장은 폭이 좁으면 두 줄이 된다 — 그래서 maxWidth가 필요하다.
+  static double measure(
+    String text, {
+    required double maxWidth,
+    required TextScaler textScaler,
+  }) {
+    return ExplorePanel.measureText(
       text,
-      style: const TextStyle(color: SurbiColors.textGray, fontSize: 12),
+      style,
+      maxWidth: maxWidth,
+      textScaler: textScaler,
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Text(text, style: style);
 }
 
 class _HintRow extends StatelessWidget {
@@ -406,25 +631,45 @@ class _SkeletonRow extends StatelessWidget {
 
   const _SkeletonRow({required this.label, required this.widthFactor});
 
+  static const double labelWidth = 84;
+  static const double barHeight = 12;
+  static const double bottomGap = 14;
+  static const TextStyle labelStyle = TextStyle(
+    color: SurbiColors.textGray,
+    fontSize: 13,
+  );
+
+  /// 한 줄이 차지하는 높이(px).
+  ///
+  /// 라벨을 인자로 받지 않는 이유 — 지표 라벨은 전부 같은 스타일의 한 줄짜리
+  /// 한글이라 글자가 달라도 높이가 같다. 대표로 하나만 재면 충분하다.
+  static double measure({required TextScaler textScaler}) {
+    final labelHeight = ExplorePanel.measureText(
+      '유동인구',
+      labelStyle,
+      maxWidth: labelWidth,
+      textScaler: textScaler,
+    );
+    // Row는 더 큰 쪽을 따른다 — 글자가 작아도 막대(12px)보다 낮아질 수는 없다
+    return math.max(labelHeight, barHeight) + bottomGap;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: bottomGap),
       child: Row(
         children: [
           SizedBox(
-            width: 84,
-            child: Text(
-              label,
-              style: const TextStyle(color: SurbiColors.textGray, fontSize: 13),
-            ),
+            width: labelWidth,
+            child: Text(label, style: labelStyle),
           ),
           Expanded(
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: widthFactor,
               child: Container(
-                height: 12,
+                height: barHeight,
                 decoration: BoxDecoration(
                   color: SurbiColors.placeholderGray,
                   borderRadius: BorderRadius.circular(6),
@@ -479,10 +724,16 @@ class _ScoreButton extends StatelessWidget {
 class SheetHandle extends StatelessWidget {
   const SheetHandle({super.key});
 
+  /// 손잡이가 차지하는 높이(px).
+  ///
+  /// **시트 높이 계산이 이 값을 읽는다.** 손잡이는 ExplorePanel 밖이지만
+  /// 시트 안이라, 빼먹으면 min에서 헤더가 딱 이만큼 잘린다.
+  static const double height = 26;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 26,
+      height: height,
       child: Center(
         child: Container(
           width: 48,
