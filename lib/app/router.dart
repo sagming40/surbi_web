@@ -172,7 +172,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               final districtCode = state.pathParameters['districtCode']!;
               final categoryCode = state.pathParameters['categoryCode']!;
               return ResponsiveLayout(
-                maxWidth: 1200, // 2컬럼 레이아웃이라 기본 500보다 넓게
+                // 2026-08-26 — /explore와 화면 크기를 통일 (8/24 회의 지시 ③).
+                // 넓은 화면에서 보고서 글줄이 길어지는 문제는 라우트가 아니라
+                // 탭 콘텐츠 안쪽에서 잡는다 — 라우트를 좁히면 두 화면이 다시 어긋난다
+                maxWidth: double.infinity,
                 child: ScoreShell(
                   // TODO(Phase 3): buildingId → districtCode로 파라미터명 교체
                   // 지금은 buildingId 자리에 districtCode를 넘겨 동작만 유지

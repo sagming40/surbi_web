@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart'; // ⭐ 추가
 import 'package:surbi_web/app/theme.dart';
 
 /// 앱 전체에서 공용으로 쓰는 AppBar
-/// (흰 배경 + 그림자 없음 + 네이비 뒤로가기 + 하단 얇은 구분선)
+///
+/// 통합 화면(/explore)의 상단 바와 같은 모양이다 —
+/// 은백 배경 · 그림자 없음 · 구분선 없음 · 네이비 뒤로가기.
+/// (2026-08-25 회의 지시 ③ 디자인 통일)
 class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final VoidCallback? onBackPressed; // ⭐ 추가 — 지정 안 하면 기본 동작 사용
@@ -15,8 +18,14 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: SurbiColors.primary,
       elevation: 0,
+      // ⚠️ Material 3은 본문이 AppBar 밑으로 스크롤돼 들어가면 surfaceTintColor를
+      //    덧씌워 색을 바꾼다 (scrolledUnderElevation 기본값 3).
+      //    backgroundColor를 명시했는데도 **스크롤할 때만** 색이 변하는 현상이 이것이다.
+      //    SurbiCard가 Card 대신 Container를 쓰는 이유와 같은 문제라 여기서도 명시적으로 끈다.
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       leading: IconButton(
         icon: const Icon(
           Icons.chevron_left,
@@ -46,13 +55,9 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
           color: SurbiColors.accent,
         ),
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: Colors.grey.shade200, height: 1),
-      ),
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }

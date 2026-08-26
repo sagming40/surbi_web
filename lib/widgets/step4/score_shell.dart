@@ -20,9 +20,24 @@ class ScoreShell extends StatelessWidget {
     required this.navigationShell,
   });
 
+  /// 넓은 화면에서 탭 영역이 가져갈 최대 폭.
+  ///
+  /// 화면 전체를 쓰되(8/24 회의 지시 ③) **글줄이 무한정 길어지지는 않게** 한다.
+  /// 1920 화면에서 제한이 없으면 본문 한 줄이 1,500px = 한글 100자를 넘어
+  /// 눈이 줄 끝에서 다음 줄 시작으로 돌아오지 못한다. 읽기 좋은 길이는 40~50자다.
+  ///   본문 14px × 45자 ≈ 630 + 카드 안쪽 여백 40 + 뷰어 바깥 여백 48 ≈ 720
+  ///
+  /// ⚠️ 라우트(ResponsiveLayout)가 아니라 **화면 안쪽**에서 잡는 이유 —
+  /// 라우트를 좁히면 화면 전체가 가운데 박스에 갇혀 /explore와 다시 어긋난다.
+  /// 좌측 요약 패널은 /explore의 좌측 패널처럼 화면 끝에 붙어 있어야 한다.
+  static const double _contentMaxWidth = 720;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // /explore와 같은 바탕색. 명시하지 않으면 테마 기본값(거의 흰색)이 되어
+      // 은백 배경 위의 흰 카드라는 규칙이 이 화면에서만 깨진다.
+      backgroundColor: SurbiColors.primary,
       appBar: SurbiAppBar(
         title: 'AI 창업 분석',
         onBackPressed: () {
@@ -53,12 +68,22 @@ class ScoreShell extends StatelessWidget {
                 const SizedBox(width: 340, child: ScoreHubPanel()),
                 const VerticalDivider(width: 1),
                 Expanded(
-                  child: Column(
-                    children: [
-                      _ScoreTabBar(navigationShell: navigationShell),
-                      const Divider(height: 1),
-                      Expanded(child: navigationShell),
-                    ],
+                  // 탭바까지 함께 감싼다 — 콘텐츠만 좁히면 탭 3개가 1,500px에
+                  // 퍼져서 밑줄만 길어지고 아래 카드와 폭이 어긋난다.
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: _contentMaxWidth,
+                      ),
+                      child: Column(
+                        children: [
+                          _ScoreTabBar(navigationShell: navigationShell),
+                          const Divider(height: 1),
+                          Expanded(child: navigationShell),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -107,9 +132,10 @@ class _ScoreTabBar extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: isSelected
-                        ? SurbiColors.accent
-                        : SurbiColors.textGray,
+                    // ⚠️ transparent는 '색'이 아니라 '여기엔 아무것도 안 그린다'는
+                    //    뜻이라 테마 상수로 올릴 대상이 아니다. 회색으로 바꾸면
+                    //    비선택 탭에도 3px 밑줄이 생겨 선택 표시가 무의미해진다.
+                    color: isSelected ? SurbiColors.accent : Colors.transparent,
                     width: 3,
                   ),
                 ),
