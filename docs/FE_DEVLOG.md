@@ -6,7 +6,7 @@
 | 파일형태 | 문서 |
 | 생성일 | 2026년 7월 17일 (`FE_트러블슈팅_모음_v1.4` + `FE_메모_모음_v1.4` 통합) |
 | 담당자 | 사공민규 |
-| 최종 편집 일시 | 2026년 8월 25일 |
+| 최종 편집 일시 | 2026년 8월 26일 |
 
 > 💡 **이 문서의 역할**
 > Surbi 프론트엔드를 개발하며 **그날그날 무슨 일이 있었는지**를 기록합니다.
@@ -85,6 +85,24 @@
   (열림/닫힘 등)만 콜백으로 통지하고, 그 신호로 무엇을 할지는 사용하는 화면이 결정한다.
   - 예: `SurbiDropdown.onMenuVisibilityChanged` → 지도 화면만 이 신호로 지도를 잠근다.
     위젯 안에 지도 코드를 넣으면 지도가 없는 화면도 지도를 알아야 하는 구조가 됨
+- **(2026-08-26 추가)** 시각 값은 **디자인 토큰에서만** 가져온다. 화면 파일에 색·모서리·
+  그림자·글자 크기를 직접 적지 않는다. (`lib/app/theme.dart`)
+  - `SurbiColors` 색 / `SurbiRadius` 모서리 / `SurbiShadow` 그림자 / `SurbiText` 글자 크기
+  - 마우스 상호작용(hover·pressed·focus)은 **테마 루트에서 한 번만** 정한다
+    (`ThemeData.hoverColor`·`highlightColor`·`focusColor`·`splashColor`).
+    ⚠️ 단, `IconButton`은 `ThemeData.hoverColor`를 **읽지 않는다** — M3에서
+    `IconButtonTheme.overlayColor`로 갈렸으므로 둘 다 지정해야 화면 전체가 같아진다
+  - ⚠️ **Material 3는 `elevation > 0`이면 배경에 `surfaceTint`를 자동으로 덧씌운다.**
+    배경색을 직접 지정한 곳에는 반드시 `surfaceTintColor: Colors.transparent`를 함께 적는다.
+    하루에 같은 함정을 4곳에서 밟았다 — `SurbiCard` · `SurbiAppBar`(`scrolledUnderElevation`도
+    같이 0으로) · `SurbiDropdown` 메뉴 · 지도 컨트롤 버튼
+  - ⚠️ **`Colors.transparent`는 색이 아니라 "그리지 마라"는 뜻이다.** 색을 일괄 치환할 때
+    이것까지 회색 토큰으로 바꾸면 **없던 선이 생긴다** (선택 안 된 탭 전부에 밑줄이 그려져
+    구분선과 겹쳐 이중선이 된 사고)
+  - ⚠️ **grep은 "틀린 색"은 찾아도 "빠진 색"은 못 찾는다.** 토큰을 도입한 뒤에는 화면을
+    눈으로 훑어 확인하는 단계가 반드시 따라와야 한다
+  - ⚠️ 토큰 이름에 **방향을 담지 않는다.** 점수는 높을수록 좋고 폐업 위험도는 높을수록
+    나쁘다 → `high`/`low`가 아니라 `good`/`warn`/`bad`로 짓는다
 
 ### 공용 함수 원칙
 - **(2026-08-20 추가)** 공용화는 **같은 이유로 같은 것이 필요할 때** 가치가 있다.
@@ -127,6 +145,33 @@
 - **계산이 틀려도 안 죽는 구조를 고른다.** 스크롤 가능한 한 겹(`ListView`) 안에서는
   계산이 작으면 살짝 스크롤되고 크면 살짝 여백이 남을 뿐 overflow가 나지 않는다.
   `Column`을 높이 제약이 걸린 자리에 두면 몇 px만 넘쳐도 화면이 빨갛게 죽는다.
+
+### 위젯 트리와 상태 수명
+
+- **(2026-08-26 추가)** **조건부 `return`으로 트리 모양을 바꾸지 않는다.**
+  Flutter는 위젯을 **트리 상 위치 + 런타임 타입 + key**로 식별한다. 타입이 같아도 위치가
+  바뀌면 다른 위젯으로 보고 `Element`를 새로 만들며, 그때 거기 매달려 있던
+  `State`와 `ScrollPosition`이 **통째로 버려진다.**
+  - 사례: `if (!hasFooter) return list;` 다음에 `return Column([Expanded(list), footer]);`
+    → 시트가 min 경계를 넘을 때마다 `ListView`가 **뿌리 ↔ Column의 자식**을 오갔다.
+    `ScrollPosition`이 재생성되면서 그 위에서 돌던
+    `DraggableScrollableController.animateTo`가 **중간에 죽어** 시트가 어중간한 높이에 멈췄고,
+    드래그 때는 프레임마다 같은 일이 반복돼 시트가 떨렸다
+  - 해결: **자리는 늘 지키고 내용만 비운다** —
+    `Column([Expanded(list), if (hasFooter) footer else const SizedBox.shrink()])`
+- **위젯에 넘기는 `List`·`Map`을 매 build마다 새로 만들지 않는다.** Flutter의
+  `didUpdateWidget`은 대개 `!=`, 즉 **내용이 아니라 정체(identity)로** 비교한다.
+  값이 똑같아도 매번 "바뀌었다"로 판정된다.
+  - 사례: `DraggableScrollableSheet.snapSizes`를 getter로 매번 새로 만들었더니 내부
+    extent가 프레임마다 교체돼 시트 크기가 `initialChildSize`로 되돌아갔다. 그런데 그
+    되돌림은 컨트롤러 리스너를 울리지 않아 단계 값은 그대로 남았다 →
+    **크기는 mid인데 내용은 min(헤더만)** 인 상태가 이렇게 생겼다
+  - 해결: 필드로 들고 있다가 **값이 실제로 바뀔 때만** 새 리스트를 만든다
+- **진실은 하나로 두고 나머지는 도출한다.** "크기 → 단계"와 "단계 → 크기"를 둘 다 쓰면
+  한쪽이 낡은 값일 때 서로를 덮어쓴다. **크기가 진실**이고, 단계는 언제나 크기에서 계산한다.
+- **build 도중에 컨트롤러를 만지지 않는다.** 이미 진행 중인 프레임 위에 레이아웃 요청이
+  겹쳐 `Tried to build dirty widget in the wrong build scope`가 난다.
+  `WidgetsBinding.instance.addPostFrameCallback`으로 프레임이 끝난 뒤로 미룬다.
 
 ### Platform View(지도) 위의 Flutter UI
 
@@ -1294,6 +1339,167 @@ min을 세 상태 모두 "헤더만"으로 통일해 규칙 하나로 정리했�
   ※ ②에서 만든 시트의 배경색(`SurbiColors.primary`) · 모서리(`SurbiRadius.card`)가 기준
 - 8/24 회의 지시 ④ — Step 4 모바일 재구성 (SHAP/보고서/지원사업/체크리스트가 두 화면으로 갈림)
 - 좁은 화면 `/score`에서 "예상 성과" 카드가 탭바에 잘리는 현상 (8/24 스크린샷) — ③·④와 함께
+- 미해결 12번 — 시트 영역 640px 미만에서 업종 메뉴 잘림 (EPIC 5-4 실기기 테스트에서 확인)
+- 미해결 13번 — `/score/.../report`가 URL 파라미터를 무시하고 고정값 표시
+
+---
+
+## 2026-08-26 · 8/24 회의 지시 ③ 디자인 통일 — 디자인 토큰 도입 + `/explore`↔`/score` 정합 + 시트 CTA 고정
+
+> 회의 지시는 "화면 크기·AppBar·배경색을 통일하라"였지만, 손대보니 통일해야 할 것이
+> 그 셋만이 아니었다. 마우스를 올렸을 때 어두워지는 정도가 화면마다 달랐고, 같은 회색이
+> 파일마다 다른 값으로 하드코딩돼 있었다. **"통일"은 값을 맞추는 일이 아니라 값을 한 곳에
+> 모으는 일**이라고 보고 디자인 토큰부터 만들었다.
+
+### 오늘 한 일
+
+**1. 디자인 토큰 4종을 `lib/app/theme.dart`에 신설했다**
+
+기존에는 `SurbiColors`만 있었고 모서리·그림자·글자 크기는 화면마다 숫자를 직접 적고 있었다.
+`SurbiRadius`(pill 50 / card 20 / chip 16 / small 8 / tiny 4) · `SurbiShadow`(card) ·
+`SurbiText`(display 40 / title 20 / subtitle 16 / body 14 / label 13 / caption 11)를 추가하고,
+색에도 `textPrimary`(본문 글자색)와 상태 3단계(`good`/`warn`/`bad` + tint 2종)를 더했다.
+
+⚠️ 상태 색 이름을 `high`/`low`로 짓지 않은 이유를 주석으로 남겼다 — **방향이 반대인 곳이
+있다.** 점수는 높을수록 좋고(70점 이상 = good) 폐업 위험도는 높을수록 나쁘다. 이름에 방향을
+담으면 둘 중 한 곳에서 반드시 뒤집힌다.
+
+**2. 마우스 상호작용을 테마 루트에서 한 번만 정하게 했다**
+
+hover·pressed·focus 농도가 화면마다 제각각이었다. `ThemeData`의
+`hoverColor`(0.04) · `highlightColor`(0.06) · `focusColor`(0.08) · `splashColor`(0.10)로
+**한 계단씩 올라가는 척도**를 만들어 브랜드 색(`SurbiColors.accent`)에 얹었다.
+
+여기서 한 번 막혔다 — 뒤로가기 버튼만 계속 회색으로 어두워졌다. **`IconButton`은
+`ThemeData.hoverColor`를 읽지 않는다.** Material 3에서 `IconButtonTheme.overlayColor`로
+경로가 갈렸기 때문이다. `iconButtonTheme`을 따로 지정해 같은 척도를 다시 얹었다.
+
+**3. `ColorScheme.fromSeed`의 씨앗 색을 브랜드 색으로 바꿨다**
+
+`seedColor`가 `0xFF1565C0`(머티리얼 기본 파랑 계열)이었다. 씨앗 하나에서 30여 개 색이
+파생되므로, 여기가 브랜드와 다르면 우리가 지정하지 않은 모든 곳(선택 하이라이트,
+스크롤바, 리플)이 남의 색으로 나온다. `SurbiColors.accent`로 교체했다.
+
+**4. Material 3의 `surfaceTint`를 네 곳에서 걷어냈다**
+
+`elevation > 0`이면 M3는 배경에 틴트를 자동으로 덧씌운다. 배경색을 직접 지정한 곳은
+그 틴트 때문에 지정한 색이 탁해진다. `SurbiCard`에서 이미 겪었던 함정인데, 오늘 하루에만
+`SurbiAppBar`(`scrolledUnderElevation`도 함께 0으로) · `SurbiDropdown` 메뉴 ·
+지도 컨트롤 버튼에서 **같은 함정을 세 번 더 밟았다.** 상시 규칙으로 승격시켰다.
+
+**5. `/explore`와 `/score`의 화면 크기·AppBar·배경색을 맞췄다**
+
+- 배경 — `scaffoldBackgroundColor`를 `SurbiColors.primary`로 (8/25 시트와 같은 색)
+- AppBar — 흰 배경 + 하단 구분선을 제거하고 `SurbiColors.primary` · elevation 0으로 통일
+- 화면 폭 — `/score`의 `ResponsiveLayout`을 `maxWidth: double.infinity`로 열고,
+  **AppBar는 화면 전폭 / 내용은 1200px 중앙 정렬**로 나눴다.
+  1200은 임의의 숫자가 아니라 `340(허브 패널) + 1(구분선) + 859(탭 영역)`의 합이다.
+
+⚠️ `Center`는 세로 제약을 **느슨하게(loosen)** 만든다. `Center > SizedBox(width:)` 안에
+`Row(stretch)`를 넣었더니 높이가 확정되지 않아 무너졌다.
+`height: constraints.maxHeight`를 명시해야 했다.
+
+**6. 지도가 시트에 가려진 만큼을 계산에 넣었다**
+
+`setBounds`가 **시트 뒤에 숨은 영역까지 포함한 한가운데**에 대상을 놓고 있었다. 서울 전역도,
+선택한 동도 시트 뒤로 내려갔다. 카카오맵 `setBounds`는 패딩 4개를 더 받는데
+`kakao_map_interop.dart`에 인자 1개짜리로만 선언돼 있어서 쓸 수 없던 것이었다.
+
+```dart
+@JS('setBounds')
+external void setBoundsWithPadding(KakaoLatLngBounds bounds,
+    int paddingTop, int paddingRight, int paddingBottom, int paddingLeft);
+```
+
+⚠️ 처음엔 가려지는 양을 **mid 고정**으로 넣었는데, 시트를 min으로 접어둔 상태에서도 화면
+절반을 비워두게 되어 지도가 절반 크기로 축소됐다. **"덮여 있다"는 사실은 지금 시트가 얼마나
+큰지에 달렸다** — 현재 크기를 쓰되 0.55로 상한을 뒀다.
+
+**7. 시트 크기와 내용이 어긋나는 버그 2건을 잡았다**
+
+- **`snapSizes`를 getter로 만들면 안 된다** — 매 build마다 새 리스트가 만들어져
+  `didUpdateWidget`의 정체 비교에 걸렸다. 내부 extent가 통째로 교체되면서 크기가
+  `initialChildSize`로 되돌아갔는데, 그 되돌림은 리스너를 울리지 않아 단계는 그대로 남았다.
+  **크기는 mid인데 내용은 min**. 화면을 아무 데나 눌러 rebuild가 일어나야 맞춰졌다.
+  결정적 단서는 "**바텀시트 영역 누르면 동목록이 나타나**"였다.
+- **넓은 화면에 갔다 오면** 시트가 통째로 새로 만들어져 첫 build 시점엔 컨트롤러가 아직
+  안 붙어 있다. 거기서 단계 재판단을 건너뛰면 떠나기 전 단계가 남는다.
+  `initialChildSize`에 계산값(`_sheetMidFraction`)을 넣은 것도 같은 재설정을 유발해,
+  고정 상수 `_sheetInitialSize`로 분리했다.
+
+**8. `AI 창업 점수 보기` 버튼을 스크롤 밖 고정 푸터로 뺐다**
+
+CTA가 `ListView` 안에 있으면 스크롤 한 번에 화면 밖으로 사라진다. 손잡이를 `ListView`
+밖으로 뺀 것과 같은 논리로 시트 하단에 고정했다. 부수 효과로 **상태 ③(동 선택 후)의 mid가
+①②보다 낮던 문제**도 함께 풀렸다 — 푸터 높이가 상수로 mid 계산에 더해지면서 정렬됐다.
+
+**9. 그 직후 생긴 버그 2건 — 원인은 조건부 `return` 하나였다**
+
+푸터를 넣자 두 증상이 나타났다.
+- 탭으로 `max → mid → min → mid`를 돌면 시트가 중간 높이에 멈췄다. 단계는 가까운 곳(mid)으로
+  판정되니 내용은 mid인데 높이가 모자라 **드롭다운만 잘리고 CTA는 보였다.**
+- 같은 경로를 드래그하면 시트가 **덜덜 떨렸다.**
+
+높이 계산(`measureStops`)도 정지 위치 재정렬(`_applyStops`)도 정상이었다. 범인은 `build()`가
+돌려주는 **트리 모양**이었다.
+
+```dart
+if (!_hasFooter) return list;               // min  : ListView가 트리의 뿌리
+return Column([Expanded(list), footer]);    // mid·max: ListView가 Column의 자식
+```
+
+`_hasFooter`가 `level != min`에 걸려 있어서, **min 경계를 넘을 때마다 ListView가 트리에서
+자리를 옮겼다.** Flutter는 자리가 바뀐 위젯의 `Element`를 재사용하지 못하고 새로 만들며,
+그때 매달려 있던 `ScrollPosition`도 함께 버려진다.
+`DraggableScrollableController.animateTo`는 **그 `ScrollPosition` 위에서 돌아가는
+활동(activity)** 이라, 위치가 갈리는 순간 애니메이션이 중단된다. 드래그는 `jumpTo`가
+프레임마다 불리므로 같은 일이 반복돼 진동으로 보였다.
+
+해결은 **자리를 지키고 내용만 비우는 것**이었다.
+
+```dart
+Column(children: [
+  Expanded(child: list),
+  if (_hasFooter) Padding(padding: footerPadding, child: _ScoreButton(...))
+  else const SizedBox.shrink(),
+]);
+```
+
+### 오늘 배운 것 / 느낀 점
+
+- **"통일"은 값을 맞추는 일이 아니라 값을 한 곳에 모으는 일이다.** 색을 하나하나 같게
+  고쳤다면 다음 화면을 만들 때 또 어긋났을 것이다. 토큰으로 모으고 나니 그 뒤로는
+  화면 파일을 열 이유가 없어졌다.
+
+- **`grep`은 "틀린 색"은 찾아도 "빠진 색"은 못 찾는다.** 하드코딩된 `0xFF...`는 전부 잡혔지만,
+  애초에 색을 지정하지 않아 M3 기본값으로 나오던 곳(뒤로가기 버튼의 회색 hover)은
+  검색으로 걸리지 않았다. **검색은 있는 것만 본다** — 없는 것을 찾으려면 화면을 봐야 한다.
+
+- **`Colors.transparent`는 색이 아니라 "그리지 마라"는 뜻이다.** 색 일괄 치환 중에 선택
+  안 된 탭의 밑줄 색을 회색 토큰으로 바꿨더니, 없던 선이 전 탭에 생기고 구분선과 겹쳐
+  이중선이 됐다. **투명은 회색의 옅은 버전이 아니다.**
+
+- **주석과 코드가 어긋난 곳을 오늘만 다섯 군데 찾았다.** "화면 크기를 통일"이라 적힌 옆에
+  1200이 박혀 있고, 파일 헤더가 옛 파일명을 가리키고, "더 은은하게"라고 적힌 값이 기준의
+  두 배였다. **주석은 코드와 함께 안 고치면 거짓말이 된다** — 다음 사람이 코드를 안 읽고
+  주석을 믿으면 그때부터 진짜 버그가 된다.
+
+- **위젯이 트리에서 '자리를 옮기는 것'만으로 상태가 죽는다.** Flutter를 배우며 위젯은
+  "그리는 방법을 적은 설명서"라고 이해했는데, 그 설명서가 붙어 있는 **위치**가 상태의
+  주소였다. 주소가 바뀌면 이사가 아니라 **철거 후 신축**이다.
+
+- **성격이 다른 두 버그가 사실 하나였다.** 탭할 때의 "멈춤"과 드래그할 때의 "떨림"은
+  증상만 보면 전혀 다르지만, 둘 다 min 경계에서 일어났고 원인이 같았다.
+  **증상을 세는 게 아니라 발생 지점을 세야 했다.**
+
+- **커밋을 나누는 게 항상 옳지는 않다.** 푸터 도입분이 아직 커밋되지 않은 상태였으므로
+  `feat`/`fix`로 나누면 **고장난 상태를 히스토리에 일부러 한 칸 남기게 된다.**
+  커밋 분리는 *이미 각자 동작하는* 변경끼리 성격이 다를 때 쓰는 도구다.
+
+### 다음에 할 일
+
+- 8/24 회의 지시 ④ — Step 4 모바일 재구성 (좁은 화면에서 "예상 성과" 카드가 탭바에 잘림)
+- 디자인 토큰 잔여 적용 — `lib/widgets/step4/`(10개) · `lib/views/`(4개)
 - 미해결 12번 — 시트 영역 640px 미만에서 업종 메뉴 잘림 (EPIC 5-4 실기기 테스트에서 확인)
 - 미해결 13번 — `/score/.../report`가 URL 파라미터를 무시하고 고정값 표시
 
