@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/models/region.dart';
+import 'package:surbi_web/widgets/common/surbi_back_button.dart';
 import 'package:surbi_web/widgets/common/surbi_dropdown.dart';
 
 /// 통합 지도 화면의 상단 바 — `[‹] [구▾] [동▾]`
@@ -47,17 +48,25 @@ class ExploreTopBar extends StatelessWidget {
     final canStepBack = onStepBack != null;
 
     return Container(
-      color: SurbiColors.primary,
-      padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+      // 상단 바는 본문보다 한 톤 밝고 아래에 얇은 선을 둔다 — SurbiAppBar와 같은 규칙
+      decoration: const BoxDecoration(
+        color: SurbiColors.barSurface,
+        border: Border(
+          bottom: BorderSide(color: SurbiColors.divider, width: 1),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        SurbiBackButton.gutter,
+        12,
+        16,
+        12,
+      ),
       child: Row(
         children: [
           // ‹ — 화면을 나가는 것이 아니라 선택을 한 단계 되돌린다
           //     (동 있으면 동 해제 → 구만 있으면 구 해제 → 없으면 비활성)
-          IconButton(
+          SurbiBackButton(
             onPressed: onStepBack,
-            icon: const Icon(Icons.chevron_left_rounded, size: 28),
-            color: SurbiColors.accent,
-            disabledColor: SurbiColors.placeholderGray,
             tooltip: canStepBack ? '이전 단계로' : null,
           ),
           const SizedBox(width: 4),
