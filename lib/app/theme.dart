@@ -5,6 +5,24 @@ class SurbiColors {
   static const Color primary = Color(0xFFF8FAFA); // 은백색 — 배경 (최종 확정)
   static const Color primaryLight = Color(0xFFCCFBF1); // 연한 틸 (미사용)
 
+  /// 상단 바 배경 (2026-08-26 추가)
+  ///
+  /// 본문 배경(primary #F8FAFA)보다 **한 톤 밝은 순백**이다.
+  /// 8/26 오전에는 상단 바도 primary로 통일했는데, 그러면 바가 본문에 녹아
+  /// **어디까지가 바인지 안 보인다.** 통일해야 할 것은 "같은 색"이 아니라
+  /// "같은 규칙"이었다 — 바는 어느 화면에서든 본문보다 한 톤 밝다.
+  ///
+  /// 면의 밝기 차 + 아래 divider를 함께 쓴다. 둘 중 하나만으로도 경계는
+  /// 생기지만, 같이 쓰면 선을 1px로 얇게 두고도 확실히 읽힌다.
+  static const Color barSurface = Color(0xFFFFFFFF);
+
+  /// 구분선 (2026-08-26 추가)
+  ///
+  /// placeholderGray(#D9D9D9)를 재활용하지 않는 이유 — 그건 히트맵 빈칸을
+  /// 채우는 **면** 색이라 1px 선으로 쓰면 너무 진해 화면을 자른다.
+  /// 같은 회색이라도 면에 쓸 때와 선에 쓸 때 필요한 농도가 다르다.
+  static const Color divider = Color(0xFFE5E9E9);
+
   // ── 성공/완료 컬러 (Success) ──────────────
   static const Color success = Color(0xFF16A34A); // 그라스 그린 — 완료 배지, 체크리스트
 
@@ -94,6 +112,40 @@ class SurbiShadow {
   ];
 }
 
+/// 마우스·터치 반응 농도 (2026-08-26 추가)
+///
+/// 약한 신호(지나감)와 강한 신호(눌렀음)의 세기가 같으면 사용자는 방금 무슨 일이
+/// 일어났는지 구분하지 못한다. 그래서 **한 계단씩** 올린다.
+class SurbiOverlay {
+  static const double hover = 0.04; // 마우스 올림
+  static const double highlight = 0.06; // 누르는 중
+  static const double focus = 0.08; // 키보드 포커스
+  static const double pressed = 0.10; // 눌림·물결
+
+  /// IconButton 전용 오버레이 — 상태를 보고 위 농도 중 하나를 고른다.
+  ///
+  /// ⚠️ **테마에만 둬서는 AppBar 안에서 안 먹는다.** (2026-08-26에 배운 것)
+  ///    Material 3의 AppBar는 자기 leading·actions를 감쌀 IconButtonTheme을
+  ///    **스스로 만들어 씌운다.** 그게 main.dart에 둔 전역 설정보다 위젯에
+  ///    더 가까우므로 이긴다 — Theme은 명령이 아니라 상속이고,
+  ///    상속은 언제나 **가장 가까운 조상**이 이긴다.
+  ///    그래서 AppBar 안의 IconButton에는 위젯에 직접 넘겨야 한다.
+  ///    (main.dart의 전역 설정과 SurbiAppBar가 이 하나를 같이 읽는다)
+  static final WidgetStateProperty<Color?> iconButton =
+      WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return SurbiColors.accent.withValues(alpha: pressed);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return SurbiColors.accent.withValues(alpha: hover);
+        }
+        if (states.contains(WidgetState.focused)) {
+          return SurbiColors.accent.withValues(alpha: focus);
+        }
+        return null;
+      });
+}
+
 /// 글자 크기 사다리 (2026-08-26 추가)
 ///
 /// 도입 전 실측 — **12종류가 41곳**에 흩어져 있었다.
@@ -105,8 +157,8 @@ class SurbiShadow {
 /// 한 번에 다 바꾸면 어디가 어색해졌는지 찾을 수 없다. (DEVLOG 2026-08-20)
 class SurbiText {
   static const double display = 40; // 점수 게이지 숫자
-  static const double title = 20; // 화면·카드 제목
-  static const double subtitle = 16; // 섹션 제목·AppBar
+  static const double title = 20; // 화면 제목 · AppBar 제목
+  static const double subtitle = 16; // 섹션 제목 · 카드 제목
   static const double body = 14; // 본문
   static const double label = 13; // 라벨·보조 (가장 많이 쓰인다)
   static const double caption = 11; // 각주·배지

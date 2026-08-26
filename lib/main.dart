@@ -50,28 +50,22 @@ class SurbiApp extends ConsumerWidget {
         // 0.04 → 0.06 → 0.08 → 0.10으로 **단계를 두는 것**이 핵심이다.
         // 약한 신호(지나감)와 강한 신호(눌렀음)의 세기가 같으면
         // 사용자는 방금 무슨 일이 일어났는지 구분하지 못한다.
-        hoverColor: SurbiColors.accent.withValues(alpha: 0.04), // 마우스 올림
-        highlightColor: SurbiColors.accent.withValues(alpha: 0.06), // 누르는 중
-        focusColor: SurbiColors.accent.withValues(alpha: 0.08), // 키보드 포커스
-        splashColor: SurbiColors.accent.withValues(alpha: 0.10), // 물결
+        // 농도는 SurbiOverlay가 갖고 있다 — 여기서 숫자를 직접 적으면
+        // AppBar 쪽(SurbiAppBar)과 값이 갈린다.
+        hoverColor: SurbiColors.accent.withValues(alpha: SurbiOverlay.hover),
+        highlightColor: SurbiColors.accent.withValues(
+          alpha: SurbiOverlay.highlight,
+        ),
+        focusColor: SurbiColors.accent.withValues(alpha: SurbiOverlay.focus),
+        splashColor: SurbiColors.accent.withValues(alpha: SurbiOverlay.pressed),
         // ⚠️ IconButton은 Material 3에서 InkWell과 **다른 경로**를 탄다.
         //    자체 IconButtonTheme의 overlayColor를 보므로 위 hoverColor가 안 먹는다.
-        //    AppBar 뒤로가기(`‹`)와 지도 컨트롤 버튼이 여기 해당한다.
+        //    지도 컨트롤 버튼이 여기 해당한다.
+        // ⚠️ 단, **AppBar 안의 IconButton에는 이것도 안 닿는다** — AppBar가 자기
+        //    IconButtonTheme을 더 가까이에 씌우기 때문이다. SurbiAppBar가
+        //    같은 SurbiOverlay.iconButton을 위젯에 직접 넘겨서 맞춘다.
         iconButtonTheme: IconButtonThemeData(
-          style: ButtonStyle(
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) {
-                return SurbiColors.accent.withValues(alpha: 0.10);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return SurbiColors.accent.withValues(alpha: 0.04);
-              }
-              if (states.contains(WidgetState.focused)) {
-                return SurbiColors.accent.withValues(alpha: 0.08);
-              }
-              return null;
-            }),
-          ),
+          style: ButtonStyle(overlayColor: SurbiOverlay.iconButton),
         ),
 
         // 추가 ㅡ BottomSheet를 밑으로 드래그 할때 지도가 같이 딸려 내려가는 현상 개선
