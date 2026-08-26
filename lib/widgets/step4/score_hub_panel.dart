@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:surbi_web/app/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:surbi_web/providers/score_provider.dart';
+import 'package:surbi_web/widgets/common/surbi_card.dart';
 import 'package:surbi_web/widgets/step4/score_gauge.dart';
 import 'package:surbi_web/widgets/step4/shap_bar_chart.dart';
 
@@ -26,7 +27,6 @@ class ScoreHubPanel extends ConsumerWidget {
             title: '종합 창업 점수',
             child: ScoreGauge(score: scoreResult.totalScore),
           ),
-          const SizedBox(height: 20),
           _buildCard(
             title: '예상 성과',
             child: _buildPerformanceRow(
@@ -34,7 +34,6 @@ class ScoreHubPanel extends ConsumerWidget {
               closureRiskPct: scoreResult.closureRiskPct,
             ),
           ),
-          const SizedBox(height: 20),
           _buildCard(
             title: '점수 상세 분석',
             subtitle: '막대그래프를 길게 누르면 이 점수가 무엇을 뜻하는 지 볼 수 있어요',
@@ -80,13 +79,16 @@ class ScoreHubPanel extends ConsumerWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: SurbiColors.textGray),
+          style: const TextStyle(
+            fontSize: SurbiText.label,
+            color: SurbiColors.textGray,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: SurbiText.title,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -100,27 +102,19 @@ class ScoreHubPanel extends ConsumerWidget {
     String? subtitle,
     required Widget child,
   }) {
-    return Container(
-      width: double.infinity,
+    // 손으로 그리던 카드를 SurbiCard로 교체했다 (2026-08-26).
+    // 직접 그리면 그림자·모서리가 파일마다 갈린다 — 실제로 report_viewer와
+    // 그림자 농도가 0.1 vs 0.05로 어긋나 있었다.
+    // 카드 사이 간격은 SurbiCard의 margin(세로 8)이 만든다 → SizedBox 제거.
+    return SurbiCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: SurbiText.subtitle,
               fontWeight: FontWeight.bold,
               color: SurbiColors.accent,
             ),
@@ -129,7 +123,10 @@ class ScoreHubPanel extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(fontSize: 12, color: SurbiColors.textGray),
+              style: TextStyle(
+                fontSize: SurbiText.label,
+                color: SurbiColors.textGray,
+              ),
             ),
           ],
           const SizedBox(height: 16),
