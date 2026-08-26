@@ -20,6 +20,18 @@ class SurbiColors {
 
   static const Color placeholderGray = Color(0xFFD9D9D9); // 히트맵 placeholder 등
   static const Color textGray = Color(0xFF8E8E8E); // 보조 안내 텍스트
+  /// 본문 글자색 (2026-08-26 추가)
+  ///
+  /// 지금까지 본문용 상수가 없어서 화면마다 Material 기본값을 골라 썼다 —
+  /// black87 / black54 / grey[700] / grey[800] / Colors.black **다섯 갈래.**
+  /// 위계는 세 단계면 충분하다:
+  ///   제목·강조 → accent (#1E3A5F)
+  ///   본문      → textPrimary
+  ///   보조·힌트 → textGray (#8E8E8E)
+  ///
+  /// 순검정(#000)을 쓰지 않는 이유 — 은백 배경(#F8FAFA) 위에서 대비가 너무 강해
+  /// 글자만 도드라진다. accent와 같은 네이비 계열로 살짝 눕혔다.
+  static const Color textPrimary = Color(0xFF333A42);
 
   // ⚠️ 주의: 아래 두 색은 Task 3-4 SHAP 차트 전용으로 예약됨.
   // 다른 용도로 재사용 금지 (양수 기여=파랑, 음수 기여=빨강 의미 고정)
@@ -63,4 +75,39 @@ class SurbiRadius {
   static const double pill = 50;
   static const double card = 20;
   static const double chip = 16;
+
+  /// 배지·태그·작은 버튼 (2026-08-26 추가) — 흩어져 있던 10·8·6을 흡수
+  static const double small = 8;
+
+  /// 막대 끝·진행바 (2026-08-26 추가) — 흩어져 있던 3을 흡수
+  static const double tiny = 4;
+}
+
+/// 그림자 — 은백 배경 위에 흰 카드를 띄우는 규칙 (2026-08-26 추가)
+///
+/// `Colors.black.withValues(alpha: 0.05)`와 **같은 값**을 `Color(0x0D000000)`으로
+/// 적은 이유: withValues는 런타임 계산이라 const가 안 되지만 이 형태는 된다.
+/// (0x0D = 13 ≈ 255 × 0.05)
+class SurbiShadow {
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+}
+
+/// 글자 크기 사다리 (2026-08-26 추가)
+///
+/// 도입 전 실측 — **12종류가 41곳**에 흩어져 있었다.
+///   13×13  12×5  20×4  16×4  14×4  15×3  11×3  22×2  40·24·18·17·10 각 1회
+/// 17이나 10처럼 한 번만 쓰인 값은 그때그때 눈대중으로 정한 것이다.
+///
+/// ⚠️ 지금은 **상수만 만들고, 값이 이미 같은 곳부터** 교체한다.
+/// 22·18·17·15·12·10처럼 사다리와 어긋나는 값은 실물을 보며 하나씩 판단한다 —
+/// 한 번에 다 바꾸면 어디가 어색해졌는지 찾을 수 없다. (DEVLOG 2026-08-20)
+class SurbiText {
+  static const double display = 40; // 점수 게이지 숫자
+  static const double title = 20; // 화면·카드 제목
+  static const double subtitle = 16; // 섹션 제목·AppBar
+  static const double body = 14; // 본문
+  static const double label = 13; // 라벨·보조 (가장 많이 쓰인다)
+  static const double caption = 11; // 각주·배지
 }
