@@ -731,6 +731,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 child: Material(
                   color: SurbiColors.primary,
                   elevation: 8,
+                  // ⚠️ M3는 elevation > 0이면 배경에 surfaceTint를 자동으로
+                  //    덧씌운다 — 지정한 은백색이 탁해진다. (오늘 5번째 사례)
+                  surfaceTintColor: Colors.transparent,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(SurbiRadius.card),
                   ),
@@ -941,7 +944,7 @@ class _SampleDataBadge extends StatelessWidget {
                 '실제 업소 537,488건은 GET /api/businesses 연동 대기 중',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: SurbiText.label,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -44,7 +44,7 @@ class PolicyCard extends StatelessWidget {
                 child: Text(
                   policy.title,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: SurbiText.subtitle,
                     fontWeight: FontWeight.bold,
                     color: SurbiColors.accent, // ⭐ 추가 — 제목 색상 네이비로
                   ),
@@ -62,7 +62,11 @@ class PolicyCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${policy.agency} · ${policy.jrsdInsttNm}',
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            // 발행 기관 — 보조 정보라 옅은 회색
+            style: const TextStyle(
+              fontSize: SurbiText.label,
+              color: SurbiColors.textGray,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -71,7 +75,7 @@ class PolicyCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '${policy.startDate} ~ ${policy.endDate}',
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: SurbiText.label),
               ),
             ],
           ),
@@ -80,7 +84,11 @@ class PolicyCard extends StatelessWidget {
             policy.summary,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+            // 요약 본문 — 읽는 글이라 진한 본문색
+            style: const TextStyle(
+              fontSize: SurbiText.label,
+              color: SurbiColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 8),
           Align(

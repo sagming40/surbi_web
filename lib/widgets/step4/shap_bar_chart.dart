@@ -35,7 +35,7 @@ class ShapBarChart extends StatelessWidget {
               Text(
                 factor.name,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: SurbiText.label,
                   color: SurbiColors.textGray,
                 ),
               ),
@@ -45,7 +45,7 @@ class ShapBarChart extends StatelessWidget {
                     ? '+${factor.value.toInt()}'
                     : '${factor.value.toInt()}',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: SurbiText.label,
                   fontWeight: FontWeight.bold,
                   color: barColor,
                 ),
@@ -73,7 +73,7 @@ class ShapBarChart extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: SurbiColors.shapNegative,
                             borderRadius: const BorderRadius.horizontal(
-                              left: Radius.circular(4),
+                              left: Radius.circular(SurbiRadius.tiny),
                             ),
                           ),
                         ),
@@ -85,7 +85,7 @@ class ShapBarChart extends StatelessWidget {
                   Container(
                     width: 1.5,
                     height: 24, // 막대(20)보다 살짝 크게 키워서 도드라지게
-                    color: Colors.grey.shade500, // 회색 복귀, 살짝 더 진하게
+                    color: SurbiColors.textGray,
                   ),
 
                   // 오른쪽 절반 — 양수(기여) 자리
@@ -98,7 +98,7 @@ class ShapBarChart extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: SurbiColors.shapPositive,
                             borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(4),
+                              right: Radius.circular(SurbiRadius.tiny),
                             ),
                           ),
                         ),

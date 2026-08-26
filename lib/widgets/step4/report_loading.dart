@@ -58,7 +58,7 @@ class _ReportLoadingState extends State<ReportLoading> {
           Text(
             _messages[_currentIndex],
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: SurbiText.subtitle,
               fontWeight: FontWeight.bold,
               color: SurbiColors.accent,
             ),

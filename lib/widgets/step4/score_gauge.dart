@@ -19,7 +19,7 @@ class ScoreGauge extends StatelessWidget {
           child: Text(
             score.toInt().toString(),
             style: const TextStyle(
-              fontSize: 40,
+              fontSize: SurbiText.display,
               fontWeight: FontWeight.bold,
               color: SurbiColors.accent,
             ),

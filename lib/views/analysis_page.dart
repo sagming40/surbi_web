@@ -70,7 +70,7 @@ class AnalysisPage extends ConsumerWidget {
         Text(
           '${a.districtName} · ${a.categoryName}',
           style: const TextStyle(
-            fontSize: 22,
+            fontSize: SurbiText.title,
             fontWeight: FontWeight.bold,
             color: SurbiColors.accent,
           ),
@@ -78,7 +78,10 @@ class AnalysisPage extends ConsumerWidget {
         const SizedBox(height: 4),
         Text(
           '${_periodLabel(a.periodCode)} 기준',
-          style: const TextStyle(fontSize: 13, color: SurbiColors.textGray),
+          style: const TextStyle(
+            fontSize: SurbiText.label,
+            color: SurbiColors.textGray,
+          ),
         ),
       ],
     );
@@ -103,7 +106,7 @@ class AnalysisPage extends ConsumerWidget {
           const Text(
             '이 동네 업종별 매출 TOP 5',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: SurbiText.subtitle,
               fontWeight: FontWeight.bold,
               color: SurbiColors.accent,
             ),
@@ -111,7 +114,10 @@ class AnalysisPage extends ConsumerWidget {
           const SizedBox(height: 4),
           const Text(
             '선택한 업종이 이 동네에서 어느 위치인지 확인하세요',
-            style: TextStyle(fontSize: 12, color: SurbiColors.textGray),
+            style: TextStyle(
+              fontSize: SurbiText.label,
+              color: SurbiColors.textGray,
+            ),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -165,7 +171,7 @@ class AnalysisPage extends ConsumerWidget {
                             a.topSales[index].categoryName,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: SurbiText.caption,
                               color: isSelected
                                   ? SurbiColors.accent
                                   : SurbiColors.textGray,
@@ -194,8 +200,9 @@ class AnalysisPage extends ConsumerWidget {
                             : SurbiColors.placeholderGray,
                         width: 28,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(6),
-                          topRight: Radius.circular(6),
+                          // 막대 윗머리만 둥글게 — SHAP 차트 막대와 같은 tiny(4)
+                          topLeft: Radius.circular(SurbiRadius.tiny),
+                          topRight: Radius.circular(SurbiRadius.tiny),
                         ),
                       ),
                     ],
@@ -264,14 +271,14 @@ class AnalysisPage extends ConsumerWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: SurbiText.body,
                   color: SurbiColors.textGray,
                 ),
               ),
               Text(
                 note,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: SurbiText.caption,
                   color: SurbiColors.textGray,
                 ),
               ),
@@ -281,7 +288,7 @@ class AnalysisPage extends ConsumerWidget {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 17,
+            fontSize: SurbiText.subtitle,
             fontWeight: FontWeight.bold,
             color: SurbiColors.accent,
           ),

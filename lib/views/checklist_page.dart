@@ -27,7 +27,10 @@ class ChecklistPage extends ConsumerWidget {
             child: const Text(
               '⚠️ 현재는 임시 저장이며 새로고침 시 초기화됩니다',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.black54),
+              style: TextStyle(
+                fontSize: SurbiText.caption,
+                color: SurbiColors.textGray,
+              ),
             ),
           ),
           const ChecklistProgressBar(),

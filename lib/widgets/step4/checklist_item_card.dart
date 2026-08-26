@@ -62,12 +62,14 @@ class ChecklistItemCard extends StatelessWidget {
                     Text(
                       item.content,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: SurbiText.body,
                         fontWeight: item.isChecked
                             ? FontWeight.normal
                             : FontWeight.w500,
                         // 취소선 대신 색 대비로만 완료 여부 표시
-                        color: item.isChecked ? Colors.grey : Colors.black87,
+                        color: item.isChecked
+                            ? SurbiColors.textGray
+                            : SurbiColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -78,12 +80,12 @@ class ChecklistItemCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: categoryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(SurbiRadius.small),
                       ),
                       child: Text(
                         item.category,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: SurbiText.caption,
                           fontWeight: FontWeight.w600,
                           color: categoryColor,
                         ),

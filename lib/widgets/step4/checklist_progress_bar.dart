@@ -24,12 +24,15 @@ class ChecklistProgressBar extends ConsumerWidget {
             children: [
               const Text(
                 '진행률',
-                style: TextStyle(fontSize: 13, color: Colors.black54),
+                style: TextStyle(
+                  fontSize: SurbiText.label,
+                  color: SurbiColors.textGray,
+                ),
               ),
               Text(
                 '${progress.done} / ${progress.total} 완료',
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: SurbiText.label,
                   fontWeight: FontWeight.w600,
                   color: SurbiColors.accent,
                 ),
@@ -38,7 +41,7 @@ class ChecklistProgressBar extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(SurbiRadius.small),
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 8,
