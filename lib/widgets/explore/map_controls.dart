@@ -66,10 +66,15 @@ class _ControlButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(SurbiRadius.small),
       elevation: 3,
+      // ⚠️ elevation > 0이면 Material 3가 배경 위에 colorScheme.surfaceTint를
+      //    덧씌운다. color를 흰색으로 줘도 순백이 되지 않아, 지도 위에서 버튼만
+      //    푸른 기가 돈다. SurbiCard가 Card를 피하는 이유, SurbiAppBar의
+      //    scrolledUnderElevation, SurbiDropdown의 메뉴와 **전부 같은 문제**다.
+      surfaceTintColor: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(SurbiRadius.small),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(8),

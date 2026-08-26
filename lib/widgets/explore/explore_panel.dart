@@ -263,7 +263,7 @@ class ExplorePanel extends StatelessWidget {
         style: TextStyle(
           color: SurbiColors.textGray,
           height: 1.7,
-          fontSize: 14,
+          fontSize: SurbiText.body,
         ),
       ),
       SizedBox(height: 24),
@@ -426,7 +426,7 @@ class _CategoryMetrics extends StatelessWidget {
               '업종을 선택하면 볼 수 있어요',
               style: TextStyle(
                 color: SurbiColors.accent,
-                fontSize: 13,
+                fontSize: SurbiText.label,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -461,12 +461,12 @@ class _PanelHeader extends StatelessWidget {
 
   static const TextStyle titleStyle = TextStyle(
     color: SurbiColors.accent,
-    fontSize: 20,
+    fontSize: SurbiText.title,
     fontWeight: FontWeight.bold,
   );
   static const TextStyle subtitleStyle = TextStyle(
     color: SurbiColors.textGray,
-    fontSize: 13,
+    fontSize: SurbiText.label,
   );
 
   /// 이 헤더가 차지할 높이(px)를 그리지 않고 계산한다. build()와 **같은 상수**를
@@ -595,7 +595,10 @@ class _HintRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: SurbiColors.textGray, fontSize: 13),
+            style: const TextStyle(
+              color: SurbiColors.textGray,
+              fontSize: SurbiText.label,
+            ),
           ),
         ),
       ],
@@ -661,7 +664,7 @@ class _SkeletonRow extends StatelessWidget {
   static const double bottomGap = 14;
   static const TextStyle labelStyle = TextStyle(
     color: SurbiColors.textGray,
-    fontSize: 13,
+    fontSize: SurbiText.label,
   );
 
   /// 한 줄이 차지하는 높이(px).
@@ -697,7 +700,9 @@ class _SkeletonRow extends StatelessWidget {
                 height: barHeight,
                 decoration: BoxDecoration(
                   color: SurbiColors.placeholderGray,
-                  borderRadius: BorderRadius.circular(6),
+                  // 막대 높이의 절반 = 양 끝이 완전한 반원.
+                  // 6이라는 숫자가 아니라 '캡슐 모양'이 의도였으므로 계산식으로 적는다.
+                  borderRadius: BorderRadius.circular(barHeight / 2),
                 ),
               ),
             ),
@@ -765,7 +770,7 @@ class SheetHandle extends StatelessWidget {
           height: 5,
           decoration: BoxDecoration(
             color: SurbiColors.textGray,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(SurbiRadius.tiny),
           ),
         ),
       ),
