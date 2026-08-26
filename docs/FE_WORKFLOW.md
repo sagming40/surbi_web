@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v5.3 |
+| 버전 | v5.4 |
 | 생성일 | 2026년 6월 18일 |
 | 최종 수정 | 2026년 8월 26일 |
 | 담당자 | 사공민규 |
@@ -16,6 +16,7 @@
 > ※ v5.1 — 통합 화면 Phase 1 완료 · Phase 2-A·2-B 완료분 반영 (2026-08-23)
 > ※ v5.2 — 8/24 회의 지시 4건 반영 · 하단 시트 3단계 완료 (2026-08-25)
 > ※ v5.3 — 8/24 지시 ③(디자인 통일) 완료 · 디자인 토큰 도입 (2026-08-26)
+> ※ v5.4 — 토큰 전면 적용 완료 · 상단 바 규격 통일 (2026-08-26 오후)
 
 ---
 
@@ -24,7 +25,7 @@
 | 순위 | 작업 | 상태 | 비고 |
 | --- | --- | --- | --- |
 | **1** | **8/24 회의 지시 ④ — Step 4 모바일 재구성** | 🔜 **다음 차례** | 좁은 화면에서 "예상 성과" 카드가 탭바에 잘림. SHAP/보고서/지원사업/체크리스트가 두 화면으로 갈림. **착수 전 방향 결정 필요**(아래 "착수 전 결정" 표) |
-| **2** | **디자인 토큰 잔여 적용** | 🔄 진행 | `lib/app/`·`lib/widgets/common/`·`lib/widgets/explore/` 완료. 남은 곳: `lib/widgets/step4/`(10개) · `lib/views/`(4개). ④와 같이 하면 두 번 안 열어도 됨 |
+| **2** | ~~디자인 토큰 잔여 적용~~ | ✅ **완료 (8/26)** | `lib/` 전체 하드코딩 0. `TextStyle`에 `fontSize`가 없어 프레임워크 기본값을 타던 곳까지 정리 |
 | **3** | Step 1·2·3 통합 화면 — Phase 2-C·2-D | ⏸️ 보류 | 2-C(폴리곤 클릭)는 설계 완료·착수 전. 아래 "통합 화면 계획" 참고 |
 | **4** | Task 4-2 · API 협의 문서 v2.2 송부 | 🔄 진행 | Notion 게시 + Discord 공유 |
 | **5** | ⭐ **`GET /api/businesses` — 행정동 코드 필터 필수** (BE) | ⏸️ 요청 예정 | 데이터는 DB에 적재·검증 완료(537,488건)이고 **엔드포인트만 없음**.<br>⚠️ **전체 조회는 프론트가 못 받는다** — 8/23 실측: 동 1개(1,265개) 25ms이나 서울 전체는 ~10초 추정. `district_code`로 잘라 주셔야 함 |
@@ -149,10 +150,19 @@
 
 | 토큰 | 정의 | 값 |
 | --- | --- | --- |
-| `SurbiColors` | 색 | 브랜드(`primary`·`accent`) · 글자(`textPrimary`·`textGray`) · 상태(`good`/`warn`/`bad` + tint) |
+| `SurbiColors` | 색 | 브랜드(`primary`·`accent`) · 바탕(`barSurface`) · 선(`divider`·`border`) · 글자(`textPrimary`·`textGray`) · 상태(`good`/`warn`/`bad` + tint) |
 | `SurbiRadius` | 모서리 | `pill 50` · `card 20` · `chip 16` · `small 8` · `tiny 4` |
-| `SurbiShadow` | 그림자 | `card` (`#0D000000`, blur 12, offset 0·4) |
+| `SurbiShadow` | 그림자 | `card`(blur 12·offset 0,4) · `row`(blur 6·offset 0,2) |
 | `SurbiText` | 글자 크기 | `display 40` · `title 20` · `subtitle 16` · `body 14` · `label 13` · `caption 11` |
+| `SurbiOverlay` | 마우스 반응 | `hover .04` → `highlight .06` → `focus .08` → `pressed .10` + `iconButton` resolver |
+| `SurbiBar` | 상단 바 규격 | `controlHeight 52` · `verticalPadding 12` · `height 76` · `totalHeight 77` |
+
+⚠️ **값이 비슷하다고 합치지 않는다. 기준은 "쓰이는 모양"이다.**
+회색 셋과 그림자 둘이 비슷해 보이지만 하는 일이 다르다 —
+`divider`는 화면을 가로지르는 긴 직선(옅어도 보인다), `border`는 알약을 감싸는
+짧고 굽은 선(같은 농도면 묻힌다), `placeholderGray`는 비활성·빈칸을 채우는 면.
+`SurbiShadow.card`는 마진 8을 가진 큰 카드용이고 `row`는 간격 6px 목록용이다 —
+**번짐 반경이 틈보다 넓으면 그림자가 옆 요소에 올라탄다.**
 
 **마우스 상호작용은 테마 루트에서 한 번만 정한다.** 브랜드 색에 얹은 4단계 척도 —
 `hoverColor 0.04` → `highlightColor 0.06` → `focusColor 0.08` → `splashColor 0.10`.
@@ -163,15 +173,32 @@
 
 | 항목 | 값 | 비고 |
 | --- | --- | --- |
-| 배경 | `SurbiColors.primary` | `scaffoldBackgroundColor` |
-| AppBar | `SurbiColors.primary` · elevation 0 · 구분선 없음 | `scrolledUnderElevation`·`surfaceTintColor`도 0/투명 |
+| 본문 배경 | `SurbiColors.primary` (#F8FAFA) | `scaffoldBackgroundColor` |
+| **상단 바** | `SurbiColors.barSurface` (#FFFFFF) + 아래 1px `divider` | **본문보다 한 톤 밝게** — 같은 색이면 바가 본문에 녹아 경계가 사라진다 (8/26 오전 시행착오) |
+| 바 높이 | `SurbiBar.totalHeight` 77 | ⚠️ `SurbiAppBar`는 선이 `bottom:`이라 바 밖(76+1), `ExploreTopBar`는 `border`라 안쪽(77). **같은 77을 다른 방식으로 만든다** |
+| 뒤로가기 | `SurbiBackButton` | `SurbiAppBar`·`ExploreTopBar` **공유**. `leadingWidth: 72` 필수(안 주면 8px 어긋남) |
+| 바 안 글자 | `SurbiText.subtitle` (16) | AppBar 제목 = 드롭다운 글자. 같은 자리·같은 역할 |
 | `ColorScheme` 씨앗 | `SurbiColors.accent` | 씨앗 하나에서 30여 색이 파생 — 여기가 틀리면 지정 안 한 모든 곳이 남의 색 |
 | 내용 최대 폭 | `1200px` 중앙 정렬 (AppBar는 전폭) | `340(허브) + 1(구분선) + 859(탭)` |
+
+**강조 규칙 — 네이비 볼드 = "지금 고른 값"**
+드롭다운의 선택된 값만 `accent` + `w600`이고, 화살표도 그 색을 따라간다.
+힌트·메뉴 항목·동 목록 22개는 보통 굵기다 — **전부 강조하면 강조가 사라진다.**
+반복 요소의 무게를 올릴 때는 개수를 먼저 본다(하나는 디테일, 22개는 패턴).
 
 ⚠️ **`elevation > 0`인 곳에는 반드시 `surfaceTintColor: Colors.transparent`** — M3가 배경에
 틴트를 자동으로 덧씌워 지정한 색이 탁해진다. (`SurbiCard`·`SurbiAppBar`·`SurbiDropdown` 메뉴·지도 컨트롤)
 
-**잔여 적용 대상** — `lib/widgets/step4/`(10개) · `lib/views/`(4개). 지시 ④와 함께 진행.
+⚠️ **`elevation > 0`인 곳에는 `surfaceTintColor: Colors.transparent`** — 8/26에만 6곳에서 밟았다.
+
+⚠️ **`Theme`은 명령이 아니라 상속이다** — 가장 가까운 조상이 이긴다. `AppBar`는 자기
+`IconButtonTheme`을 씌우므로 `main.dart`의 전역 설정이 안 닿는다. 위젯에 직접 줄 것.
+
+⚠️ **`fontSize`를 명시해야 하는 때** — ⓐ우리 코드가 그 크기에 의존할 때 ⓑ상속받을
+부모가 없을 때(직접 그린 위젯·외부 라이브러리) ⓒ여러 곳이 같아야 하는데 각자 기본값을
+탈 때. **그 외에는 상속이 맞다** — 버튼 라벨에 크기를 박으면 테마에서 한 번에 바꿀 수 없다.
+
+**적용 완료** — `lib/` 전체 하드코딩 0 (2026-08-26).
 
 ---
 
