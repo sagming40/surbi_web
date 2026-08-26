@@ -110,15 +110,69 @@ class ExplorePanel extends StatelessWidget {
   static const String _analysisNote = 'GET /api/analysis 연동 후 실제 값이 표시됩니다';
   static const String _pickerTitle = '어떤 업종으로 창업하시나요?';
 
+  /// 시트 **맨 아래에 고정**되는 CTA(점수 보기) 영역의 여백.
+  ///
+  /// 버튼을 스크롤 내용에 섞지 않는 이유 — CTA는 "언제든 누를 수 있어야 하는 것"이라
+  /// 스크롤에 딸려 사라지면 안 된다. 손잡이를 ListView 밖으로 뺀 것과 같은 논리다.
+  /// (2026-08-26)
+  static const EdgeInsets footerPadding = EdgeInsets.fromLTRB(20, 12, 20, 20);
+
+  /// CTA 영역이 차지하는 전체 높이 = 버튼 + 위아래 여백.
+  /// 시트 높이 계산(measureStops)이 이 값을 그대로 읽는다.
+  static const double footerHeight =
+      _ScoreButton.height + 12 + 20; // footerPadding.vertical
+
   static String _regionCountSubtitle(int count) => '행정동 $count개';
   static String _guSubtitle(String guName) => '서울특별시 · $guName';
 
+  /// CTA를 띄울 상태인가 — 동까지 골랐고, 접어둔 상태(min)가 아닐 때.
+  ///
+  /// min에 안 두는 이유 — min은 "지금 어디인지만 확인하는 상태"라는 정의다.
+  /// 업종을 아직 안 골랐으면 비활성 회색 버튼이라, min 높이를 두 배로 키우면서
+  /// 아무 일도 하지 못한다.
+  bool get _hasFooter => selectedRegion != null && level != SheetLevel.min;
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    final list = ListView(
       controller: scrollController,
       padding: panelPadding,
       children: _contentFor(level),
+    );
+
+    // ⚠️ **트리 모양을 항상 같게 유지한다.** (2026-08-26에 데인 것)
+    //
+    //    예전엔 footer가 없을 때 `return list;`로 ListView를 그대로
+    //    돌려줬다. 그러면 min ↔ mid를 오갈 때마다 ListView가 트리에서
+    //    **자리를 옮긴다** — 루트 ↔ Column의 첫째 자식. 자리가 바뀌면
+    //    Flutter는 Element를 재사용하지 못하고 통째로 다시 만드는데,
+    //    그때 거기 매달려 있던 ScrollPosition도 같이 버려진다.
+    //
+    //    DraggableScrollableSheet의 animateTo는 바로 그 ScrollPosition 위에서
+    //    돌아가는 활동(activity)이라, 위치가 버려지면 **애니메이션이
+    //    한가운데서 죽는다.**
+    //      · 탭  — min을 지나 mid로 가던 시트가 중간 높이에 멈췄다.
+    //             단계는 가까운 곳(mid)으로 판정되니 내용은 mid인데
+    //             실제 높이는 모자라 드롭다운이 잘리고 CTA만 보였다.
+    //      · 드래그 — min 경계를 지나는 동안 프레임마다 같은 일이 반복돼
+    //             시트가 덜덜 떨렸다.
+    //
+    //    그래서 자리는 늘 지키고 **내용만 비운다.**
+    //    (집 구조를 바꾸는 게 아니라 방을 비워두는 것)
+    //
+    // ⚠️ Expanded를 쓰므로 **부모가 높이를 확정해줘야 한다.**
+    //    좁은 화면은 Expanded 안, 넓은 화면은 Row(stretch) 안이라 둘 다 확정된다.
+    return Column(
+      children: [
+        Expanded(child: list),
+        if (_hasFooter)
+          Padding(
+            padding: footerPadding,
+            child: _ScoreButton(onTap: onScoreTap),
+          )
+        else
+          const SizedBox.shrink(),
+      ],
     );
   }
 
@@ -192,7 +246,9 @@ class ExplorePanel extends StatelessWidget {
           context: context,
         ) +
         _gapBeforeDropdown +
-        SurbiDropdown.collapsedHeight;
+        SurbiDropdown.collapsedHeight +
+        // 시트 하단에 고정된 CTA. mid·max에만 있고 min에는 없다 (_hasFooter).
+        footerHeight;
 
     return SheetContentHeights(min: minHeight, mid: midHeight);
   }
@@ -358,15 +414,14 @@ class ExplorePanel extends StatelessWidget {
       return [header, ...regionMetrics, ...categoryPicker];
     }
 
-    // max — 고른 결과(업종 지표)와 다음 행동(점수 보기)까지
+    // max — 고른 결과(업종 지표)까지.
+    // 점수 보기 버튼은 여기 없다 — 시트 하단에 고정된다 (build 참고).
     return [
       header,
       ...regionMetrics,
       ...categoryPicker,
       const SizedBox(height: 16),
       _CategoryMetrics(isLocked: selectedCategory == null),
-      const SizedBox(height: 28),
-      _ScoreButton(onTap: onScoreTap),
     ];
   }
 }
@@ -717,6 +772,15 @@ class _ScoreButton extends StatelessWidget {
   final VoidCallback? onTap;
   const _ScoreButton({required this.onTap});
 
+  static const double _verticalPadding = 16;
+
+  /// 버튼 높이 = 세로 패딩 16×2 + 글자 한 줄.
+  ///
+  /// 글자는 ElevatedButton의 기본 스타일(labelLarge — 14 × 줄높이 1.43 ≈ 20)을 탄다.
+  /// 시트 높이 계산이 이 값을 읽으므로, 패딩을 고치면 여기도 함께 움직이도록
+  /// 계산식으로 적었다.
+  static const double height = _verticalPadding * 2 + 20;
+
   @override
   Widget build(BuildContext context) {
     final isReady = onTap != null;
@@ -728,7 +792,7 @@ class _ScoreButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: SurbiColors.accent,
           disabledBackgroundColor: SurbiColors.placeholderGray,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(SurbiRadius.pill),
           ),
