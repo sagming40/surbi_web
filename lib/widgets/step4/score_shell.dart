@@ -1,7 +1,8 @@
-// lib/widgets/step4/step4_shell.dart
+// lib/widgets/step4/score_shell.dart
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/widgets/common/surbi_app_bar.dart';
 import 'package:surbi_web/widgets/step4/score_hub_panel.dart';
 
@@ -107,8 +108,8 @@ class _ScoreTabBar extends StatelessWidget {
                 border: Border(
                   bottom: BorderSide(
                     color: isSelected
-                        ? const Color(0xFF1E3A5F)
-                        : Colors.transparent,
+                        ? SurbiColors.accent
+                        : SurbiColors.textGray,
                     width: 3,
                   ),
                 ),
@@ -118,9 +119,7 @@ class _ScoreTabBar extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected
-                      ? const Color(0xFF1E3A5F)
-                      : Colors.grey.shade600,
+                  color: isSelected ? SurbiColors.accent : SurbiColors.textGray,
                 ),
               ),
             ),

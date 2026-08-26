@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:surbi_web/models/report.dart';
+import 'package:surbi_web/app/theme.dart';
 
 /// Task 3-5 — LLM 보고서 출력 화면 (문서형 레이아웃)
 /// 상권 요약 / 리스크 요인 / 정책 추천 3개 섹션으로 구성
@@ -22,7 +23,7 @@ class ReportViewer extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A5F),
+              color: SurbiColors.accent,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -54,8 +55,8 @@ class ReportViewer extends StatelessWidget {
             icon: Icons.bar_chart_outlined,
             title: '상권 요약',
             content: report.summary,
-            accentColor: const Color(0xFF1E3A5F),
-            bgColor: const Color(0xFFE3E9F0),
+            accentColor: SurbiColors.accent,
+            bgColor: SurbiColors.accentTint,
           ),
           const SizedBox(height: 16),
 
@@ -64,8 +65,8 @@ class ReportViewer extends StatelessWidget {
             icon: Icons.warning_amber_outlined,
             title: '리스크 요인',
             content: report.riskFactors,
-            accentColor: const Color(0xFFB86E00),
-            bgColor: const Color(0xFFFCECC9),
+            accentColor: SurbiColors.warn,
+            bgColor: SurbiColors.warnTint,
           ),
           const SizedBox(height: 16),
 
@@ -74,8 +75,8 @@ class ReportViewer extends StatelessWidget {
             icon: Icons.lightbulb_outline,
             title: '정책 추천',
             content: report.policyAdvice,
-            accentColor: const Color(0xFF2E7D32),
-            bgColor: const Color(0xFFE0F0E2),
+            accentColor: SurbiColors.good,
+            bgColor: SurbiColors.goodTint,
           ),
         ],
       ),
@@ -98,7 +99,7 @@ class ReportViewer extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            // ⭐ 배경이 흰색이 아니니 그림자도 더 은은하게
+            // ⭐ 배경이 흰색이 아니니 그림자도 더 진하게
             color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),

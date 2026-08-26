@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 
 /// Task 3-5 — LLM 보고서 생성 중 보여줄 단계별 로딩 위젯
 /// 3초마다 메시지가 자동으로 바뀜 (10~30초 소요되는 작업이라 단순 스피너 대신 사용)
@@ -52,14 +53,14 @@ class _ReportLoadingState extends State<ReportLoading> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(color: Color(0xFF1E3A5F)),
+          const CircularProgressIndicator(color: SurbiColors.accent),
           const SizedBox(height: 24),
           Text(
             _messages[_currentIndex],
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E3A5F),
+              color: SurbiColors.accent,
             ),
           ),
         ],

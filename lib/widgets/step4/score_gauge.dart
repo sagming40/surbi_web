@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 
 class ScoreGauge extends StatelessWidget {
   final double score; // 0 ~ 100 사이 점수
@@ -20,7 +21,7 @@ class ScoreGauge extends StatelessWidget {
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E3A5F), // 네이비
+              color: SurbiColors.accent,
             ),
           ),
         ),
@@ -41,7 +42,7 @@ class _GaugePainter extends CustomPainter {
 
     // 1. 배경 트랙 (회색 도넛)
     final backgroundPaint = Paint()
-      ..color = Colors.grey.shade200
+      ..color = SurbiColors.placeholderGray
       ..style = PaintingStyle.stroke
       ..strokeWidth = 16
       ..strokeCap = StrokeCap.round;
@@ -67,9 +68,9 @@ class _GaugePainter extends CustomPainter {
   }
 
   Color _colorForScore(double score) {
-    if (score >= 70) return Colors.green;
-    if (score >= 50) return Colors.orange;
-    return Colors.red;
+    if (score >= 70) return SurbiColors.good;
+    if (score >= 50) return SurbiColors.warn;
+    return SurbiColors.bad;
   }
 
   @override

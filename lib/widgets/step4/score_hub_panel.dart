@@ -2,6 +2,7 @@
 
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:surbi_web/providers/score_provider.dart';
 import 'package:surbi_web/widgets/step4/score_gauge.dart';
@@ -50,8 +51,8 @@ class ScoreHubPanel extends ConsumerWidget {
   }) {
     final formattedSales = NumberFormat('#,###').format(predictedSales);
     final riskColor = closureRiskPct >= 30
-        ? Colors.red
-        : (closureRiskPct >= 15 ? Colors.orange : Colors.green);
+        ? SurbiColors.bad
+        : (closureRiskPct >= 15 ? SurbiColors.warn : SurbiColors.good);
 
     return Row(
       children: [
@@ -59,10 +60,10 @@ class ScoreHubPanel extends ConsumerWidget {
           child: _buildStatItem(
             '예상 월 매출',
             '$formattedSales원',
-            const Color(0xFF1E3A5F),
+            SurbiColors.accent,
           ),
         ),
-        Container(width: 1, height: 40, color: Colors.grey.shade300),
+        Container(width: 1, height: 40, color: SurbiColors.placeholderGray),
         Expanded(
           child: _buildStatItem(
             '폐업 위험도',
@@ -79,7 +80,7 @@ class ScoreHubPanel extends ConsumerWidget {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: const TextStyle(fontSize: 12, color: SurbiColors.textGray),
         ),
         const SizedBox(height: 6),
         Text(
@@ -121,14 +122,14 @@ class ScoreHubPanel extends ConsumerWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E3A5F),
+              color: SurbiColors.accent,
             ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: SurbiColors.textGray),
             ),
           ],
           const SizedBox(height: 16),
