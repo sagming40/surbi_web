@@ -20,17 +20,23 @@ class ScoreShell extends StatelessWidget {
     required this.navigationShell,
   });
 
-  /// 넓은 화면에서 탭 영역이 가져갈 최대 폭.
+  /// 넓은 화면에서 **본문 전체**(좌측 요약 + 탭 영역)가 가져갈 최대 폭.
   ///
-  /// 화면 전체를 쓰되(8/24 회의 지시 ③) **글줄이 무한정 길어지지는 않게** 한다.
-  /// 1920 화면에서 제한이 없으면 본문 한 줄이 1,500px = 한글 100자를 넘어
-  /// 눈이 줄 끝에서 다음 줄 시작으로 돌아오지 못한다. 읽기 좋은 길이는 40~50자다.
-  ///   본문 14px × 45자 ≈ 630 + 카드 안쪽 여백 40 + 뷰어 바깥 여백 48 ≈ 720
+  ///   340(요약) + 1(구분선) + 859(탭 콘텐츠) = 1200
   ///
-  /// ⚠️ 라우트(ResponsiveLayout)가 아니라 **화면 안쪽**에서 잡는 이유 —
-  /// 라우트를 좁히면 화면 전체가 가운데 박스에 갇혀 /explore와 다시 어긋난다.
-  /// 좌측 요약 패널은 /explore의 좌측 패널처럼 화면 끝에 붙어 있어야 한다.
-  static const double _contentMaxWidth = 720;
+  /// 제한하는 이유 — 1920 화면에서 제한이 없으면 본문 한 줄이 1,500px = 한글
+  /// 100자를 넘어 눈이 줄 끝에서 다음 줄 시작으로 돌아오지 못한다.
+  /// 1200이면 탭 콘텐츠가 859px(한글 약 60자)다. 타이포그래피 권장치(40~50자)보다
+  /// 길지만, 실물로 720과 비교했을 때 720은 허전해 1200을 택했다. (2026-08-26)
+  ///
+  /// ⚠️ **AppBar와 배경은 이 제한 밖에 둔다.** 라우트(ResponsiveLayout)를 좁히면
+  /// AppBar까지 가운데 박스에 갇혀 /explore와 어긋난다 (8/24 회의 지시 ③).
+  /// 화면 전체를 쓰는 것은 상단 바와 바탕이고, 읽을 것만 가운데로 모은다.
+  ///
+  /// ⚠️ 좌측 요약을 /explore처럼 화면 끝에 붙이지 않는 이유 — /explore의 좌측
+  /// 패널이 벽에 붙는 것은 **지도가 나머지를 다 써야 하기 때문**이다. /score에는
+  /// 지도가 없으므로 그 근거가 성립하지 않는다.
+  static const double _contentMaxWidth = 1200;
 
   @override
   Widget build(BuildContext context) {
@@ -61,21 +67,22 @@ class ScoreShell extends StatelessWidget {
           final isWide = constraints.maxWidth >= 900;
 
           if (isWide) {
-            // 900px 이상 ㅡ 죄측 게이지 고정, 우측 탭 콘텐츠만 swap
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(width: 340, child: ScoreHubPanel()),
-                const VerticalDivider(width: 1),
-                Expanded(
-                  // 탭바까지 함께 감싼다 — 콘텐츠만 좁히면 탭 3개가 1,500px에
-                  // 퍼져서 밑줄만 길어지고 아래 카드와 폭이 어긋난다.
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _contentMaxWidth,
-                      ),
+            // 900px 이상 ㅡ 좌측 게이지 고정, 우측 탭 콘텐츠만 swap
+            return Center(
+              child: SizedBox(
+                // 창이 _contentMaxWidth보다 좁으면 SizedBox가 부모 제약에 맞춰
+                // 알아서 줄어든다 — 따로 min 계산을 하지 않아도 된다.
+                width: _contentMaxWidth,
+                // ⚠️ 높이를 명시해야 한다. Center는 자식에게 "0~부모높이"로 느슨한
+                //    제약을 주는데, 그러면 아래 Row의 stretch가 기댈 높이가 없어지고
+                //    ScoreHubPanel(SingleChildScrollView)이 내용만큼 늘어나 넘친다.
+                height: constraints.maxHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(width: 340, child: ScoreHubPanel()),
+                    const VerticalDivider(width: 1),
+                    Expanded(
                       child: Column(
                         children: [
                           _ScoreTabBar(navigationShell: navigationShell),
@@ -84,9 +91,9 @@ class ScoreShell extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             );
           }
 
