@@ -18,7 +18,16 @@ class SurbiEmpty extends StatelessWidget {
             size: 48,
           ),
           const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: SurbiColors.textGray)),
+          // 상태 위젯 3종(empty·error·loading)은 같은 크기여야 한다.
+          // 셋 다 미명시면 '우연히' 같을 뿐, 한 화면이 다른 Theme 아래
+          // 놓이는 순간 갈린다.
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: SurbiText.body,
+              color: SurbiColors.textGray,
+            ),
+          ),
         ],
       ),
     );

@@ -15,7 +15,14 @@ class SurbiLoading extends StatelessWidget {
           const CircularProgressIndicator(color: SurbiColors.accent),
           if (message != null) ...[
             const SizedBox(height: 16),
-            Text(message!, style: const TextStyle(color: SurbiColors.textGray)),
+            // 상태 위젯 3종(empty·error·loading)과 같은 크기
+            Text(
+              message!,
+              style: const TextStyle(
+                fontSize: SurbiText.body,
+                color: SurbiColors.textGray,
+              ),
+            ),
           ],
         ],
       ),

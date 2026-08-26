@@ -134,7 +134,11 @@ class AnalysisPage extends ConsumerWidget {
                       final item = a.topSales[group.x];
                       return BarTooltipItem(
                         '${item.categoryName}\n${_salesLabel(item.monthlySales)}',
+                        // ⚠️ fl_chart는 우리 Theme을 보지 않는다. 여기서
+                        //    안 적으면 텍스트 엔진 기본값(14)을 타는데, 그건
+                        //    우리가 정한 값이 아니다.
                         const TextStyle(
+                          fontSize: SurbiText.body,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -333,7 +337,13 @@ class AnalysisPage extends ConsumerWidget {
         ),
         child: const Text(
           'AI 창업 점수 보기 →',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          // 하단 시트의 같은 CTA(_ScoreButton)와 짝이다 — 한쪽만 명시하면
+          // 같은 문구가 화면마다 다른 크기로 나갈 수 있다
+          style: TextStyle(
+            fontSize: SurbiText.body,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

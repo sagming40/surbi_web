@@ -18,7 +18,11 @@ class SurbiError extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: SurbiColors.textPrimary),
+            // 상태 위젯 3종(empty·error·loading)과 같은 크기
+            style: const TextStyle(
+              fontSize: SurbiText.body,
+              color: SurbiColors.textPrimary,
+            ),
           ),
           if (onRetry != null)
             TextButton(

@@ -150,7 +150,11 @@ class _ScoreTabBar extends StatelessWidget {
               child: Text(
                 _labels[index],
                 textAlign: TextAlign.center,
+                // 이 탭바는 TabBar 위젯이 아니라 우리가 Container로 직접 그린
+                // 것이라, 상속받을 '부모의 뜻'이 없다 — 명시하지 않으면
+                // DefaultTextStyle(bodyMedium)을 우연히 탄다
                 style: TextStyle(
+                  fontSize: SurbiText.body,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   color: isSelected ? SurbiColors.accent : SurbiColors.textGray,
                 ),
