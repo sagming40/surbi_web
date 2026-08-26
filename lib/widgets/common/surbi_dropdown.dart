@@ -231,9 +231,15 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                   ),
                 ),
               ),
+              // 화살표는 **글자 색을 따라간다.** 고정 회색이면 값을 고른 뒤에도
+              // 글자만 네이비가 되고 화살표는 회색으로 남아, 한 알약 안에서
+              // 둘이 따로 논다. 색을 맞추면 컨트롤 전체가 한 덩어리로
+              // "찼다 / 비었다"를 말한다. (2026-08-26)
               Icon(
                 _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                color: SurbiColors.textGray,
+                color: widget.value != null
+                    ? SurbiColors.accent
+                    : SurbiColors.textGray,
               ),
             ],
           ),

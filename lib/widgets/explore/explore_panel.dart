@@ -715,13 +715,20 @@ class _RegionTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: SurbiColors.placeholderGray,
-                ),
-              ],
+                  // ⚠️ placeholderGray(#D9D9D9)를 쓰지 않는다 — 그건
+                  //    **비활성·빈칸을 칠하는 색**인데 이 화살표는 살아 있는
+                  //    버튼이다. 죽은 것과 같은 색이면 안 된다.
+                  //    네이비로 가지 않는 이유는 개수다 — 이게 22개 쌓이면
+                  //    오른쪽에 '두 번째 목록'이 생겨 동 이름과 시선을 나눠
+                  //    갖는다. 하나는 디테일이지만 22개는 패턴이다.
+                  //    드롭다운 화살표의 평상시 색(textGray)과도 맞아떨어진다.
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: SurbiColors.textGray,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
