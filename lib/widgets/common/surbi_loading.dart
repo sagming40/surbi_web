@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 
 // API에서 데이터를 불러오는 동안 보여줄 화면
 class SurbiLoading extends StatelessWidget {
@@ -11,10 +12,10 @@ class SurbiLoading extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: Color(0xFF1565C0)),
+          const CircularProgressIndicator(color: SurbiColors.accent),
           if (message != null) ...[
             const SizedBox(height: 16),
-            Text(message!, style: const TextStyle(color: Colors.grey)),
+            Text(message!, style: const TextStyle(color: SurbiColors.textGray)),
           ],
         ],
       ),

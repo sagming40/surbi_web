@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 
-// API 호줓 실패했을 때 보여줄 화면
+// API 호출 실패했을 때 보여줄 화면
 class SurbiError extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry; // 재시도 버튼
@@ -12,11 +13,19 @@ class SurbiError extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const Icon(Icons.error_outline, color: SurbiColors.bad, size: 48),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: SurbiColors.textPrimary),
+          ),
           if (onRetry != null)
-            TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(foregroundColor: SurbiColors.accent),
+              child: const Text('다시 시도'),
+            ),
         ],
       ),
     );

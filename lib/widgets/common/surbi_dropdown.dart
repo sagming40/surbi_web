@@ -80,10 +80,8 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              // ⬇️ 추가 — 위로 펼칠 땐 메뉴의 "아래쪽"을 버튼의 "위쪽"에 붙임
-              targetAnchor: widget.openUpward
-                  ? Alignment.topLeft
-                  : Alignment.topLeft,
+              targetAnchor: Alignment.topLeft,
+              // 위로 펼칠 땐 메뉴의 "아래쪽"을 버튼의 "위쪽"에 붙인다
               followerAnchor: widget.openUpward
                   ? Alignment.bottomLeft
                   : Alignment.topLeft,
@@ -93,6 +91,14 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(SurbiRadius.card),
+                color: Colors.white,
+                // ⚠️ elevation > 0이면 Material 3가 surfaceTintColor를 배경 위에 덧씌운다.
+                //    color를 흰색으로 줘도 그 위에 colorScheme.surfaceTint(= seedColor
+                //    파생 네이비)가 얹혀 순백이 아니게 된다.
+                //    SurbiAppBar의 scrolledUnderElevation, SurbiCard가 Card 대신
+                //    Container를 쓰는 이유와 **전부 같은 문제**다.
+                surfaceTintColor: Colors.transparent,
+                clipBehavior: Clip.antiAlias,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: widget.maxMenuHeight),
                   child: SingleChildScrollView(
@@ -114,6 +120,9 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                               widget.labelBuilder(item),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: SurbiColors.textPrimary,
+                              ),
                             ),
                           ),
                         );
@@ -184,7 +193,7 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: widget.value != null
-                        ? Colors.black
+                        ? SurbiColors.textPrimary
                         : SurbiColors.textGray,
                   ),
                 ),

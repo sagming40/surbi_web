@@ -8,7 +8,7 @@ import 'package:surbi_web/app/theme.dart';
 /// (Material 3의 자동 surfaceTintColor 간섭을 피하기 위함)
 class SurbiCard extends StatelessWidget {
   final Widget child;
-  final Color? backgroundColor; // 지정 한 하면 흰색 기본값
+  final Color? backgroundColor; // 지정 하지 않으면 흰색 기본값
   final EdgeInsetsGeometry padding;
 
   const SurbiCard({
@@ -27,13 +27,7 @@ class SurbiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? Colors.white,
         borderRadius: BorderRadius.circular(SurbiRadius.card),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: SurbiShadow.card,
       ),
       child: child,
     );
