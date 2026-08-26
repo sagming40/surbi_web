@@ -678,26 +678,41 @@ class _RegionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(SurbiRadius.chip),
-        child: InkWell(
+      // 그림자는 Container가 그린다 — Material은 boxShadow를 못 받고,
+      // Material(elevation:)을 쓰면 M3 surfaceTint가 배경에 덧씌워진다.
+      // (SurbiCard가 Card 대신 Container를 쓰는 그 이유 그대로)
+      //
+      // 색은 안 준다. 흰 바탕은 아래 Material이 칠하고, 여기서는 모양(둥근
+      // 사각형)만 알려주면 그 모양대로 그림자가 깔린다.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(SurbiRadius.chip),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    region.regionName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    // 드롭다운 항목과 같은 크기 — 같은 것(동 이름)을 고르는
-                    // 두 가지 방법이므로 글자가 달라 보이면 안 된다
-                    style: const TextStyle(
-                      color: SurbiColors.accent,
-                      fontSize: SurbiText.subtitle,
+          boxShadow: SurbiShadow.row,
+        ),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(SurbiRadius.chip),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(SurbiRadius.chip),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      region.regionName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      // 드롭다운 항목과 같은 크기 — 같은 것(동 이름)을 고르는
+                      // 두 가지 방법이므로 글자가 달라 보이면 안 된다
+                      style: const TextStyle(
+                        color: SurbiColors.accent,
+                        fontSize: SurbiText.subtitle,
+                      ),
                     ),
                   ),
                 ),

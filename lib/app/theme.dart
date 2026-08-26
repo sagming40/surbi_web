@@ -116,8 +116,23 @@ class SurbiRadius {
 /// 적은 이유: withValues는 런타임 계산이라 const가 안 되지만 이 형태는 된다.
 /// (0x0D = 13 ≈ 255 × 0.05)
 class SurbiShadow {
+  /// 여백이 넉넉한 큰 카드용. (SurbiCard는 위아래 마진 8을 갖는다)
   static const List<BoxShadow> card = [
     BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+
+  /// 촘촘하게 쌓이는 목록 행용. (2026-08-26 추가)
+  ///
+  /// **잉크는 같고 크기만 다르다** — 색은 card와 같은 `0x0D000000`이고
+  /// 번짐(12→6)과 밀림(4→2)만 절반으로 줄였다.
+  ///
+  /// ⚠️ card를 그대로 쓰면 안 되는 이유 — 동 목록은 행 간격이 6px인데
+  ///    card의 번짐 반경은 12px다. **번짐이 틈보다 넓으면** 각 행의 그림자가
+  ///    다음 행 위로 올라타, 22개가 쌓였을 때 틈이 회색으로 메워져 탁해진다.
+  ///    큰 카드에 쓸 그림자와 촘촘한 행에 쓸 그림자는 크기가 달라야 한다.
+  ///    (divider와 border를 나눈 것과 같은 이유다 — 쓰이는 '모양'이 다르다)
+  static const List<BoxShadow> row = [
+    BoxShadow(color: Color(0x0D000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 }
 
