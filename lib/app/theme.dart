@@ -23,6 +23,15 @@ class SurbiColors {
   /// 같은 회색이라도 면에 쓸 때와 선에 쓸 때 필요한 농도가 다르다.
   static const Color divider = Color(0xFFE5E9E9);
 
+  /// 컨트롤 윤곽선 (2026-08-26 추가)
+  ///
+  /// divider와 **거의 같은 회색인데 왜 따로 두나** — 쓰이는 모양이 달라서다.
+  ///   · divider — 화면을 가로지르는 **긴 직선**. 길어서 옅어도 눈에 들어온다.
+  ///   · border  — 알약 모양 컨트롤을 **감싸는 짧고 굽은 선**. 같은 농도면 묻힌다.
+  /// 회색 세 개(divider · border · placeholderGray)가 비슷해 보이지만
+  /// 각자 하는 일이 다르다: 가르는 선 / 두르는 선 / 채우는 면.
+  static const Color border = Color(0xFFDAE0E0);
+
   // ── 성공/완료 컬러 (Success) ──────────────
   static const Color success = Color(0xFF16A34A); // 그라스 그린 — 완료 배지, 체크리스트
 
@@ -112,6 +121,32 @@ class SurbiShadow {
   ];
 }
 
+/// 상단 바 규격 (2026-08-26 추가)
+///
+/// SurbiAppBar와 ExploreTopBar가 **세로 크기를 공유**하기 위한 값이다.
+/// 예전에는 SurbiAppBar가 Material 기본값 kToolbarHeight(56), ExploreTopBar가
+/// 패딩+드롭다운으로 76이 되어 **두 화면을 오갈 때 바 높이가 20px 널뛰었다.**
+///
+/// 낮은 쪽(56)에 맞추지 않은 이유 — 바 안에 드롭다운(52)이 들어가야 하는데
+/// 56에 넣으면 위아래 여백이 2px밖에 안 남는다.
+/// **내용이 있는 쪽이 높이를 정한다.**
+class SurbiBar {
+  /// 바 안에 들어가는 컨트롤(드롭다운)의 높이.
+  /// ⚠️ SurbiDropdown.collapsedHeight가 **이 값을 읽는다** — 반대가 아니다.
+  static const double controlHeight = 52;
+
+  static const double verticalPadding = 12;
+  static const double horizontalPadding = 16;
+  static const double dividerHeight = 1;
+
+  /// 구분선을 뺀 바 자체의 높이.
+  static const double height = verticalPadding * 2 + controlHeight; // 76
+
+  /// 구분선까지 포함한 높이 — AppBar의 preferredSize가 이 값이어야 한다.
+  /// 안 더하면 선 높이만큼 본문이 바 밑으로 파고든다.
+  static const double totalHeight = height + dividerHeight; // 77
+}
+
 /// 마우스·터치 반응 농도 (2026-08-26 추가)
 ///
 /// 약한 신호(지나감)와 강한 신호(눌렀음)의 세기가 같으면 사용자는 방금 무슨 일이
@@ -157,8 +192,12 @@ class SurbiOverlay {
 /// 한 번에 다 바꾸면 어디가 어색해졌는지 찾을 수 없다. (DEVLOG 2026-08-20)
 class SurbiText {
   static const double display = 40; // 점수 게이지 숫자
-  static const double title = 20; // 화면 제목 · AppBar 제목
-  static const double subtitle = 16; // 섹션 제목 · 카드 제목
+  static const double title = 20; // 화면 안의 큰 제목 (분석 화면 헤더 등)
+  // ⚠️ 상단 바가 여기 있는 이유 — AppBar 제목과 ExploreTopBar 드롭다운이
+  //    **같은 크기여야** 두 화면의 바가 같은 물건으로 보인다. (2026-08-26)
+  //    화면 제목 > 카드 제목의 위계는 크기가 아니라 **위치**(바 안 vs 카드 안)와
+  //    그 사이의 구분선이 만든다.
+  static const double subtitle = 16; // 섹션·카드 제목 · 상단 바
   static const double body = 14; // 본문
   static const double label = 13; // 라벨·보조 (가장 많이 쓰인다)
   static const double caption = 11; // 각주·배지

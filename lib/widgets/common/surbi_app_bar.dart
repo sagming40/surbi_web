@@ -19,10 +19,6 @@ import 'package:surbi_web/widgets/common/surbi_back_button.dart';
 /// 뒤로가기는 [SurbiBackButton] 하나를 ExploreTopBar와 **공유**한다.
 /// 속성을 각자 적어두면 언젠가 또 갈린다.
 class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
-  /// 바 아래 구분선 두께. preferredSize에도 이 값이 더해져야 한다 —
-  /// 안 더하면 선 높이만큼 본문이 바 밑으로 파고든다.
-  static const double dividerHeight = 1;
-
   final String title;
   final VoidCallback? onBackPressed; // ⭐ 추가 — 지정 안 하면 기본 동작 사용
 
@@ -33,6 +29,9 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: SurbiColors.barSurface,
       elevation: 0,
+      // ⚠️ 기본값 kToolbarHeight(56)를 쓰면 ExploreTopBar(76)와 20px 어긋난다.
+      //    두 화면을 오갈 때 바가 널뛴다. (2026-08-26)
+      toolbarHeight: SurbiBar.height,
       // ⚠️ Material 3은 본문이 AppBar 밑으로 스크롤돼 들어가면 surfaceTintColor를
       //    덧씌워 색을 바꾼다 (scrolledUnderElevation 기본값 3).
       //    backgroundColor를 명시했는데도 **스크롤할 때만** 색이 변하는 현상이 이것이다.
@@ -61,19 +60,21 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text(
         title,
         style: const TextStyle(
-          // 화면 제목이므로 카드 제목(subtitle 16)보다 한 단계 위다.
-          // 같은 크기로 두면 "이 화면의 이름"과 "이 카드의 이름"이 같은
-          // 무게로 읽혀 위계가 무너진다.
-          fontSize: SurbiText.title,
+          // ExploreTopBar의 드롭다운 글자와 **같은 크기**여야 한다.
+          // 두 바를 오갈 때 크기가 다르면 같은 자리에 있는 같은 역할의 글자가
+          // 화면마다 무게가 달라져, 바가 서로 다른 물건처럼 보인다.
+          // (8/26에 18 → 20 → 16으로 두 번 옮겼다. 20으로 올렸던 근거였던
+          //  "카드 제목보다 커야 한다"는 위계는 위치와 구분선이 이미 만든다)
+          fontSize: SurbiText.subtitle,
           fontWeight: FontWeight.w600,
           color: SurbiColors.accent,
         ),
       ),
       bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(dividerHeight),
+        preferredSize: Size.fromHeight(SurbiBar.dividerHeight),
         child: Divider(
-          height: dividerHeight,
-          thickness: dividerHeight,
+          height: SurbiBar.dividerHeight,
+          thickness: SurbiBar.dividerHeight,
           color: SurbiColors.divider,
         ),
       ),
@@ -81,6 +82,5 @@ class SurbiAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize =>
-      const Size.fromHeight(kToolbarHeight + dividerHeight);
+  Size get preferredSize => const Size.fromHeight(SurbiBar.totalHeight);
 }

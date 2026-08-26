@@ -52,14 +52,26 @@ class ExploreTopBar extends StatelessWidget {
       decoration: const BoxDecoration(
         color: SurbiColors.barSurface,
         border: Border(
-          bottom: BorderSide(color: SurbiColors.divider, width: 1),
+          bottom: BorderSide(
+            color: SurbiColors.divider,
+            width: SurbiBar.dividerHeight,
+          ),
         ),
       ),
+      // 높이를 명시한다 — SurbiAppBar와 같은 값을 읽어야 두 화면을 오갈 때
+      // 바가 널뛰지 않는다. 내용(드롭다운 52)이 알아서 만드는 높이에 맡기면
+      // 나중에 컨트롤을 바꿀 때 한쪽만 조용히 달라진다.
+      //
+      // ⚠️ height(구분선 포함) - **totalHeight**를 쓴다. 여기서는 구분선이
+      //    Container의 border라 이 높이 안에 들어오기 때문이다.
+      //    (SurbiAppBar는 구분선이 bottom으로 바 '밖'에 붙어 height + 1이 된다)
+      //    같은 77을 서로 다른 방식으로 만들어 눈에 보이는 결과가 같아진다.
+      height: SurbiBar.totalHeight,
       padding: const EdgeInsets.fromLTRB(
         SurbiBackButton.gutter,
-        12,
-        16,
-        12,
+        SurbiBar.verticalPadding,
+        SurbiBar.horizontalPadding,
+        SurbiBar.verticalPadding,
       ),
       child: Row(
         children: [

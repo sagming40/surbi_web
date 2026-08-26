@@ -39,30 +39,50 @@ class SurbiBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      icon: const Icon(Icons.chevron_left_rounded),
-      iconSize: iconSize,
-      color: SurbiColors.accent,
-      disabledColor: SurbiColors.placeholderGray,
-      // ⚠️ 여기 값들은 **테마에 맡기지 않고 전부 못박는다.**
-      //
-      //    Material 3의 AppBar는 자기 leading·actions를 감쌀 IconButtonTheme을
-      //    스스로 만들어 씌운다. 그게 main.dart의 전역 설정보다 위젯에 가까운
-      //    조상이라 이긴다 — Theme은 명령이 아니라 상속이고, 상속은 언제나
-      //    가장 가까운 조상이 이긴다.
-      //
-      //    그래서 AppBar 안(SurbiAppBar)과 밖(ExploreTopBar)에서 색만이 아니라
-      //    원의 크기·모양까지 달라질 수 있다. 위젯에 직접 준 값은 테마보다
-      //    항상 세므로, 여기서 못박으면 어디에 놓든 같은 모양이 된다.
-      style: ButtonStyle(
-        overlayColor: SurbiOverlay.iconButton,
-        fixedSize: const WidgetStatePropertyAll(Size.square(diameter)),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(CircleBorder()),
-        // 데스크톱은 밀도가 compact라 원이 최대 4px 줄어든다 — 고정한다
-        visualDensity: VisualDensity.standard,
+    // ⚠️ **부모가 tight 제약을 주면 자식의 fixedSize는 무시된다.** (2026-08-26)
+    //
+    //    AppBar는 leading을 두 번 옥죈다 —
+    //      · 가로: ConstrainedBox(tightFor(width: leadingWidth))  → 72로 고정
+    //      · 세로: _ToolbarLayout이 loose(size).tighten(height:)  → toolbarHeight(76)로 고정
+    //    tight 제약 앞에서 자식은 자기 크기를 주장할 수 없다. 그래서 버튼 상자가
+    //    48×48이 아니라 **72×76**이 됐고, CircleBorder는 상자의 짧은 변을
+    //    지름으로 삼으므로 hover 원이 48이 아니라 **72**로 그려졌다.
+    //    (ExploreTopBar는 Row 안이라 loose 제약 → 48 그대로. 그래서 둘이 달랐다)
+    //
+    //    Center + SizedBox로 **한 겹 감싸면** tight 제약이 그 껍데기에서 끝난다.
+    //    껍데기가 늘어나 자리를 채우고, 안의 IconButton은 언제나 정확히
+    //    diameter × diameter를 받는다. (제약은 아래로 흐르지만 껍데기가 막아준다)
+    return Center(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: SizedBox.square(
+        dimension: diameter,
+        child: IconButton(
+          onPressed: onPressed,
+          tooltip: tooltip,
+          icon: const Icon(Icons.chevron_left_rounded),
+          iconSize: iconSize,
+          color: SurbiColors.accent,
+          disabledColor: SurbiColors.placeholderGray,
+          // ⚠️ 여기 값들은 **테마에 맡기지 않고 전부 못박는다.**
+          //
+          //    Material 3의 AppBar는 자기 leading·actions를 감쌀 IconButtonTheme을
+          //    스스로 만들어 씌운다. 그게 main.dart의 전역 설정보다 위젯에 가까운
+          //    조상이라 이긴다 — Theme은 명령이 아니라 상속이고, 상속은 언제나
+          //    가장 가까운 조상이 이긴다.
+          //
+          //    그래서 AppBar 안(SurbiAppBar)과 밖(ExploreTopBar)에서 색만이 아니라
+          //    원의 크기·모양까지 달라질 수 있다. 위젯에 직접 준 값은 테마보다
+          //    항상 세므로, 여기서 못박으면 어디에 놓든 같은 모양이 된다.
+          style: ButtonStyle(
+            overlayColor: SurbiOverlay.iconButton,
+            fixedSize: const WidgetStatePropertyAll(Size.square(diameter)),
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            shape: const WidgetStatePropertyAll(CircleBorder()),
+            // 데스크톱은 밀도가 compact라 원이 최대 4px 줄어든다 — 고정한다
+            visualDensity: VisualDensity.standard,
+          ),
+        ),
       ),
     );
   }

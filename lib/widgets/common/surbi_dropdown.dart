@@ -20,12 +20,21 @@ class SurbiDropdown<T> extends StatefulWidget {
   /// 지도 화면에서는 이 신호를 받아 지도의 드래그·휠을 잠그는 데 사용한다.
   final ValueChanged<bool>? onMenuVisibilityChanged;
 
-  /// 닫혀 있을 때의 높이(px). 세로 패딩 14×2 + 화살표 아이콘 24 = 52.
+  /// 닫혀 있을 때의 높이(px).
+  /// 세로 패딩 13×2 + **테두리 1×2** + 화살표 아이콘 24 = 52.
+  ///
+  /// ⚠️ 테두리는 높이에 **더해진다.** Container에 decoration의 border를 주면
+  ///    Flutter가 그 두께만큼 안쪽으로 패딩을 밀어넣기 때문이다.
+  ///    8/26에 윤곽선을 넣으면서 패딩을 14→13으로 줄여 52를 유지했다 —
+  ///    안 줄였으면 54가 되어 하단 시트 mid 계산이 2px 어긋났을 것이다.
   ///
   /// 상수로 뽑은 이유 — 아래 메뉴를 버튼 밑에 붙이는 offset과, 하단 시트의
   /// mid 높이 계산이 **같은 숫자**를 읽어야 한다. 따로 적어두면 패딩을
   /// 고쳤을 때 한쪽만 고쳐도 컴파일이 통과해버린다.
-  static const double collapsedHeight = 52;
+  ///
+  /// 값 자체는 [SurbiBar]가 갖고 있다 — 상단 바의 높이가 이 컨트롤에서
+  /// 나오기 때문이다. (2026-08-26)
+  static const double collapsedHeight = SurbiBar.controlHeight;
 
   const SurbiDropdown({
     super.key,
@@ -120,7 +129,11 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                               widget.labelBuilder(item),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              // 메뉴 항목은 버튼과 같은 크기여야 한다 —
+                              // 누른 것과 펼쳐진 것이 다른 크기면 같은 목록으로
+                              // 안 읽힌다
                               style: const TextStyle(
+                                fontSize: SurbiText.subtitle,
                                 color: SurbiColors.textPrimary,
                               ),
                             ),
@@ -176,10 +189,19 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
         onTap: _toggleMenu,
         borderRadius: BorderRadius.circular(SurbiRadius.pill),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
             color: _isEnabled ? Colors.white : SurbiColors.placeholderGray,
             borderRadius: BorderRadius.circular(SurbiRadius.pill),
+            // ⚠️ 윤곽선이 없으면 **흰 바 위에서 사라진다.** (2026-08-26)
+            //    상단 바 배경이 순백이 된 순간 흰 알약이 바에 녹아
+            //    "누를 수 있는 것"으로 보이지 않게 됐다.
+            //
+            //    면 색을 바꿔 해결하지 않은 이유 — 이 드롭다운은 바탕이 다른
+            //    두 곳에 산다. 상단 바(#FFFFFF)와 하단 시트(#F8FAFA).
+            //    **어느 한 색으로 채워도 둘 중 한 곳에서는 묻힌다.**
+            //    선은 두 바탕 모두에서 성립한다.
+            border: Border.all(color: SurbiColors.border),
           ),
           child: Row(
             children: [
@@ -192,6 +214,10 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
+                    // ⚠️ 지금까지 **크기를 아예 안 적어** M3 기본값(bodyMedium 14)에
+                    //    얹혀 있었다. 우리가 정한 값이 아니라 프레임워크가 정한
+                    //    값이었다는 뜻이다. SurbiAppBar 제목과 같은 subtitle로 명시.
+                    fontSize: SurbiText.subtitle,
                     color: widget.value != null
                         ? SurbiColors.textPrimary
                         : SurbiColors.textGray,
