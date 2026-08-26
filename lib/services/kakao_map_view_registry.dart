@@ -116,7 +116,7 @@ Future<void> addBusinessMarkers(List<Business> businesses) async {
     bounds.extend(position);
   }
 
-  map.setBounds(bounds);
+  _fitBounds(map, bounds);
 }
 
 // ⬇️ 마커 탭하면 이 함수가 호출되어 지도 위에 카드를 얹음
@@ -382,7 +382,7 @@ Future<void> addRegionMarkers(
   }
 
   // ⭐ 폴리곤이 이미 화면을 맞췄으면(moveCamera=false) 카메라는 손대지 않음
-  if (moveCamera) map.setBounds(bounds);
+  if (moveCamera) _fitBounds(map, bounds);
 }
 
 // ─────────────────────────────────────────────
@@ -527,7 +527,7 @@ Future<KakaoPolygon?> _renderBoundary(
     for (final point in path) {
       bounds.extend(point);
     }
-    map.setBounds(bounds);
+    _fitBounds(map, bounds);
   }
 
   return polygon;
@@ -584,11 +584,31 @@ KakaoLatLngBounds? _baseBounds;
 /// 동 선택 해제 → 방금 전 단위(구 전체 또는 서울 전체) 시야로 복귀
 ///
 /// [drawRegionBoundary]의 확대와 짝을 이루는 함수다.
+/// 지도 위를 **덮고 있는 UI의 높이(px)** — 좁은 화면의 하단 시트가 여기 해당한다.
+/// (2026-08-26 추가)
+///
+/// 지도는 자기 위에 무엇이 얹혀 있는지 모른다. **화면이 알려줘야 한다.**
+/// (onMapReady · SurbiDropdown.onMenuVisibilityChanged와 같은 원칙)
+///
+/// 0보다 크면 아래 [_fitBounds]가 그만큼을 빼고 화면을 맞춰, 대상이 시트에
+/// 가려지지 않는 자리에 놓인다. 넓은 화면에서는 0이다.
+double mapBottomInset = 0;
+
+/// 화면 맞추기는 **전부 이 함수를 거친다.** setBounds를 직접 부르지 말 것 —
+/// 하단 시트를 빼먹는 실수가 한 곳에서만 가능해진다.
+void _fitBounds(KakaoMap map, KakaoLatLngBounds bounds) {
+  if (mapBottomInset <= 0) {
+    map.setBounds(bounds);
+    return;
+  }
+  map.setBoundsWithPadding(bounds, 0, 0, mapBottomInset.round(), 0);
+}
+
 void restoreBaseView() {
   final map = kakaoMapInstance;
   final bounds = _baseBounds;
   if (map == null || bounds == null) return;
-  map.setBounds(bounds);
+  _fitBounds(map, bounds);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1068,7 +1088,7 @@ Future<void> _paintBoundaries(
   }
 
   // 그린 영역 전체가 화면에 들어오도록 맞춤 (면적이 제각각이라 고정 줌보다 정확)
-  if (_guPolygons.isNotEmpty) map.setBounds(bounds);
+  if (_guPolygons.isNotEmpty) _fitBounds(map, bounds);
 
   renderWatch.stop();
 

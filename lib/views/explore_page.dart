@@ -45,6 +45,24 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   /// 경계가 없으면 잴 것도 없으므로, 그때만 비율로 돌아간다.
   static const double _midFallbackFraction = 0.5;
 
+  /// 지도에 알려줄 "가려진 높이"의 상한 (areaHeight 대비 비율).
+  ///
+  /// 시트가 max에 가까우면 지도에 남는 자리가 거의 없어, setBounds가 대상을
+  /// 억지로 욱여넣느라 미친 듯이 축소한다. 그 상태에서는 어차피 지도를 보지
+  /// 않으므로 "절반쯤은 남아 있다"고 가정하는 편이 안전하다.
+  static const double _maxMapInsetFraction = 0.55;
+
+  /// DraggableScrollableSheet가 **처음 만들어질 때** 설 자리.
+  ///
+  /// ⚠️ 여기에 _sheetMidFraction을 넣으면 안 된다. mid는 콘텐츠에 따라 움직이는데,
+  /// initialChildSize가 바뀌면 DSS가 내부 상태(extent)를 갈아엎으면서 시트 크기를
+  /// 그 값으로 되돌린다. (snapSizes를 identity로 비교하는 것과 같은 계열의 함정 —
+  /// [_sheetStops] 주석 참고)
+  ///
+  /// 계산된 mid와 값이 조금 달라도 문제없다. 첫 프레임 뒤 _applyStops의 재정렬이
+  /// **가장 가까운 자리**로 옮겨주고, 단계는 언제나 크기에서 도출되기 때문이다.
+  static const double _sheetInitialSize = 0.5;
+
   // min·mid는 매 build에서 _applyStops가 콘텐츠 높이로부터 다시 계산한다.
   // 여기 값은 첫 build 전 한순간만 쓰이는 씨앗값이다.
   double _sheetMinFraction = 0.12;
@@ -90,12 +108,20 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
   /// 시트가 멈춰 설 세 자리 — **반드시 오름차순**이어야 한다.
   /// 아래 _toggleSheet가 "인덱스 +1 = 더 크게"를 전제로 계산하기 때문이다.
-  /// min·mid는 값이 매번 갱신되므로 static const로 둘 수 없다.
-  List<double> get _sheetStops => [
-    _sheetMinFraction,
-    _sheetMidFraction,
-    _sheetMax,
-  ];
+  ///
+  /// ⚠️ **매 build마다 새 리스트를 만들면 안 된다.** (2026-08-26에 배운 것)
+  ///
+  /// DraggableScrollableSheet는 didUpdateWidget에서 snapSizes를 `!=`로 —
+  /// 즉 **리스트의 내용이 아니라 정체(identity)로** 비교한다. getter로 매번
+  /// 새로 만들면 값이 똑같아도 항상 "바뀌었다"로 판정돼 내부 상태(extent)를
+  /// 통째로 교체하고, 그때 시트 크기가 initialChildSize(= mid)로 되돌아간다.
+  ///
+  /// 그런데 그 되돌림은 컨트롤러 리스너를 울리지 않아 _sheetLevel은 그대로
+  /// 남는다 → **크기는 mid인데 내용은 min(헤더만)** 인 상태가 이렇게 생겼다.
+  /// 화면을 아무 데나 눌러 rebuild가 일어나면 그제야 단계가 맞춰졌다.
+  ///
+  /// 그래서 **값이 실제로 바뀔 때만** 새 리스트를 만든다 (_applyStops).
+  List<double> _sheetStops = [0.12, 0.52, _sheetMax];
 
   /// 탭이 향하는 방향. +1이면 위로, -1이면 아래로.
   int _tapDirection = 1;
@@ -183,6 +209,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     final nearest = stops.reduce(
       (a, b) => (current - a).abs() < (current - b).abs() ? a : b,
     );
+    // 이미 제자리면 건드리지 않는다 — 매번 애니메이션을 걸면 정지 위치가
+    // 바뀔 때마다(창 크기 변경 등) 시트가 까닭 없이 움찔거린다.
+    if ((current - nearest).abs() < 0.001) return;
     _sheetController.animateTo(
       nearest,
       duration: const Duration(milliseconds: 200),
@@ -195,7 +224,16 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   /// 이 값이 바로 ExplorePanel에게 "지금 얼마나 펼쳐졌는지"를 알려주는 신호다.
   void _onSheetSizeChanged() {
     if (!_sheetController.isAttached) return;
-    final level = _levelForSize(_sheetController.size);
+    final size = _sheetController.size;
+
+    // 지도에게 "네 아래쪽 이만큼이 가려진다"를 항상 최신으로 알려둔다.
+    // 값만 갱신하고 다시 그리지는 않는다 — 다음에 지도를 그릴 때 쓰인다.
+    if (_sheetAreaHeight > 0) {
+      mapBottomInset =
+          _sheetAreaHeight * size.clamp(0.0, _maxMapInsetFraction);
+    }
+
+    final level = _levelForSize(size);
     if (level != _sheetLevel) setState(() => _sheetLevel = level);
   }
 
@@ -271,6 +309,39 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
     _sheetMinFraction = nextMin;
     _sheetMidFraction = nextMid;
+    // 값이 바뀔 때만 새 리스트를 만든다 — 이유는 [_sheetStops] 주석 참고.
+    if (changed) _sheetStops = [nextMin, nextMid, _sheetMax];
+
+    // 지도에게 "네 아래쪽 이만큼은 시트에 가려진다"고 알려둔다.
+    // 이걸 안 하면 setBounds가 **가려진 부분까지 포함한 한가운데**에 대상을 놓아,
+    // 서울 전역이나 선택한 동이 시트 뒤로 내려간다. (2026-08-26)
+    //
+    // ⚠️ **현재 시트 크기**를 쓴다. 처음엔 mid로 고정했는데, 시트를 min으로
+    //    접어둔 상태에서도 화면 절반을 비워두게 되어 지도가 절반 크기로
+    //    축소됐다. "덮여 있다"는 사실은 지금 시트가 얼마나 큰지에 달렸다.
+    final coverage = _sheetController.isAttached
+        ? _sheetController.size
+        : nextMid; // 첫 프레임 — 컨트롤러가 아직 안 붙었다
+    mapBottomInset = areaHeight * coverage.clamp(0.0, _maxMapInsetFraction);
+
+    // 정지 위치가 움직였으면 **"지금 어느 단계인가"도 다시 판단해야 한다.**
+    // 크기는 그대로인데 자리만 옮겨간 경우 _onSheetSizeChanged는 울리지 않아,
+    // 내용(level)과 크기가 어긋난 채로 남는다 — 시트는 mid 크기인데 내용은
+    // min(헤더만)인 상태가 이렇게 생겼다. (2026-08-26)
+    //
+    // setState 없이 필드를 바로 고치는 이유 — 여기는 build의 맨 앞이고 이 값은
+    // 바로 아래에서 패널을 만들 때 쓰인다. 이번 프레임에 그대로 반영된다.
+    //
+    // ⚠️ 컨트롤러가 **아직 안 붙은 경우**도 함께 처리해야 한다. 넓은 화면에
+    //    갔다 오면 시트가 통째로 새로 만들어지는데, 그 첫 build 시점엔 아직
+    //    붙기 전이다. 여기서 건너뛰면 떠나기 전 단계(min)가 남아 있는 채로
+    //    시트만 initialChildSize(mid)로 서 있게 된다.
+    _sheetLevel = _levelForSize(
+      _sheetController.isAttached
+          ? _sheetController.size
+          : _sheetInitialSize,
+    );
+
     if (!changed) return;
 
     // 정지 위치가 바뀌었으면 지금 서 있던 자리도 함께 옮긴다.
@@ -281,10 +352,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     //    이 프레임 위에 레이아웃 요청이 겹쳐
     //    "Tried to build dirty widget in the wrong build scope"가 난다.
     //    (2026-08-24에 실제로 겪은 예외) 프레임이 끝난 뒤로 미룬다.
+    // ⚠️ **가장 가까운 새 자리**로 옮긴다. 예전에는 _fractionForLevel(_sheetLevel)로
+    //    되돌렸는데, 그러면 "크기 → 단계"와 "단계 → 크기"가 서로를 덮어쓰는
+    //    양방향 구조가 되어 한쪽이 낡은 값일 때 어긋난다.
+    //    진실은 **크기 하나**로 두고, 단계는 언제나 크기에서 도출한다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_sheetController.isAttached) return;
-      final target = _fractionForLevel(_sheetLevel);
-      if ((_sheetController.size - target).abs() < epsilon) return;
+      final current = _sheetController.size;
+      final target = _sheetStops.reduce(
+        (a, b) => (current - a).abs() < (current - b).abs() ? a : b,
+      );
+      if ((current - target).abs() < epsilon) return;
       _sheetController.animateTo(
         target,
         duration: const Duration(milliseconds: 200),
@@ -561,6 +639,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     Region? selectedRegion, {
     required double availableWidth,
   }) {
+    // 넓은 화면에는 하단 시트가 없다. 좁은 화면에서 넘어온 값이 남아 있으면
+    // 지도가 있지도 않은 시트를 피해 위로 치우친다.
+    mapBottomInset = 0;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -622,7 +704,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         Positioned.fill(child: _buildMapArea()),
         DraggableScrollableSheet(
           controller: _sheetController,
-          initialChildSize: _sheetMidFraction,
+          initialChildSize: _sheetInitialSize,
           minChildSize: _sheetMinFraction,
           maxChildSize: _sheetMax,
           // 손을 떼면 가장 가까운 자리로 착 붙는다. 없으면 어중간한 높이에

@@ -29,6 +29,25 @@ extension type KakaoMap._(JSObject _) implements JSObject {
   external factory KakaoMap(JSAny container, KakaoMapOptions options);
   external void relayout(); // ⬅️ 추가
   external void setBounds(KakaoLatLngBounds bounds); // ⬅️ 추가 ㅡ 마커 위치로 자동 이동
+
+  /// 여백을 준 화면 맞추기 (2026-08-26 추가)
+  ///
+  /// 카카오맵의 setBounds는 원래 `setBounds(bounds, top, right, bottom, left)`로
+  /// 여백을 받는다. 우리가 1인자짜리로만 선언해둬서 그 기능을 못 쓰고 있었다.
+  ///
+  /// 여백이 필요한 이유 — 지도 위에 하단 시트가 얹히면 지도 영역의 아래쪽이
+  /// 가려진다. 여백 없이 맞추면 대상이 **가려진 부분의 한가운데**로 간다.
+  ///
+  /// 같은 이름의 JS 함수를 Dart에서 두 이름으로 부른다. Dart는 이름이 같은
+  /// 메서드를 두 번 선언할 수 없지만, @JS로 실제 JS 이름을 지정하면 된다.
+  @JS('setBounds')
+  external void setBoundsWithPadding(
+    KakaoLatLngBounds bounds,
+    int paddingTop,
+    int paddingRight,
+    int paddingBottom,
+    int paddingLeft,
+  );
   external void panTo(KakaoLatLng latlng); // ⬅️ 추가 — 부드럽게 이동
   external void setCenter(KakaoLatLng latlng); // ⬅️ 추가 — 즉시 이동
   external void setLevel(int level); // ⬅️ 추가 — 줌 레벨 지정
