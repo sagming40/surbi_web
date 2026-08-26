@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:surbi_web/app/theme.dart';
 import 'package:surbi_web/widgets/common/responsive_layout.dart'; // ⭐ 추가
 import 'package:surbi_web/widgets/step4/score_shell.dart'; // ⭐ Phase 3 추가
 import 'package:surbi_web/views/explore_page.dart'; // 통합 지도 화면
@@ -29,7 +30,7 @@ class PlaceholderPage extends StatelessWidget {
       body: Center(
         child: Text(
           label,
-          style: const TextStyle(fontSize: 20),
+          style: const TextStyle(fontSize: SurbiText.title),
           textAlign: TextAlign.center, // 줄바꿈(\n) 있을때 가운데 정렬
         ),
       ),

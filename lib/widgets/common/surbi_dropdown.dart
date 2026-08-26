@@ -129,9 +129,9 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                               widget.labelBuilder(item),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              // 메뉴 항목은 버튼과 같은 크기여야 한다 —
-                              // 누른 것과 펼쳐진 것이 다른 크기면 같은 목록으로
-                              // 안 읽힌다
+                              // 항목은 아직 '고른 것'이 아니라 '고를 후보'다.
+                              // 버튼과 같은 네이비 볼드로 두면 전부 선택된 것처럼
+                              // 보이므로, 여기는 본문색 보통 굵기를 유지한다.
                               style: const TextStyle(
                                 fontSize: SurbiText.subtitle,
                                 color: SurbiColors.textPrimary,
@@ -218,8 +218,15 @@ class _SurbiDropdownState<T> extends State<SurbiDropdown<T>> {
                     //    얹혀 있었다. 우리가 정한 값이 아니라 프레임워크가 정한
                     //    값이었다는 뜻이다. SurbiAppBar 제목과 같은 subtitle로 명시.
                     fontSize: SurbiText.subtitle,
+                    // 고른 값은 그 화면의 제목이다 — SurbiAppBar 제목과 완전히
+                    // 같은 스타일(16 · w600 · 네이비)로 맞춘다.
+                    // 아직 안 골랐으면 회색 보통 굵기로 남겨, "비어 있음"과
+                    // "채워짐"이 색 농도가 아니라 무게로도 갈리게 한다.
+                    fontWeight: widget.value != null
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                     color: widget.value != null
-                        ? SurbiColors.textPrimary
+                        ? SurbiColors.accent
                         : SurbiColors.textGray,
                   ),
                 ),

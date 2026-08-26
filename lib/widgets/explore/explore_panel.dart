@@ -100,9 +100,11 @@ class ExplorePanel extends StatelessWidget {
   static const double _gapAfterDivider = 20;
   static const double _gapBeforeDropdown = 10;
 
+  /// ⚠️ 이 스타일은 **measureStops가 읽어 mid 높이를 계산한다.**
+  ///    크기를 바꾸면 시트 높이가 따라 움직인다 — 따로 적지 않았으니 자동이다.
   static const TextStyle _pickerTitleStyle = TextStyle(
     color: SurbiColors.accent,
-    fontSize: 15,
+    fontSize: SurbiText.subtitle,
     fontWeight: FontWeight.bold,
   );
 
@@ -383,7 +385,8 @@ class ExplorePanel extends StatelessWidget {
     // 고르는 행위는 '판단' 단계이므로 지도가 보이는 mid에 있어야 맞다.
     final categoryPicker = [
       const SizedBox(height: _gapBeforeDivider),
-      const Divider(height: _dividerHeight, color: SurbiColors.placeholderGray),
+      // 선에는 선 색을 쓴다 — placeholderGray는 '채우는 면'용이라 선으로는 진하다
+      const Divider(height: _dividerHeight, color: SurbiColors.divider),
       const SizedBox(height: _gapAfterDivider),
       const Text(_pickerTitle, style: _pickerTitleStyle),
       const SizedBox(height: _gapBeforeDropdown),
@@ -613,9 +616,12 @@ class _ApiNote extends StatelessWidget {
   final String text;
   const _ApiNote(this.text);
 
+  /// 지역지표 라벨(label 13)보다 **한 단계 아래**다 — 이건 임시 안내 각주라
+  /// 데이터보다 눈에 덜 띄어야 한다.
+  /// ⚠️ measureStops가 읽어 mid 높이를 계산한다.
   static const TextStyle style = TextStyle(
     color: SurbiColors.textGray,
-    fontSize: 12,
+    fontSize: SurbiText.caption,
   );
 
   /// 이 문장은 폭이 좁으면 두 줄이 된다 — 그래서 maxWidth가 필요하다.
@@ -687,9 +693,11 @@ class _RegionTile extends StatelessWidget {
                     region.regionName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    // 드롭다운 항목과 같은 크기 — 같은 것(동 이름)을 고르는
+                    // 두 가지 방법이므로 글자가 달라 보이면 안 된다
                     style: const TextStyle(
                       color: SurbiColors.accent,
-                      fontSize: 15,
+                      fontSize: SurbiText.subtitle,
                     ),
                   ),
                 ),
@@ -774,12 +782,17 @@ class _ScoreButton extends StatelessWidget {
 
   static const double _verticalPadding = 16;
 
-  /// 버튼 높이 = 세로 패딩 16×2 + 글자 한 줄.
+  /// 글자 한 줄의 높이 = SurbiText.body(14) × Material 3 줄높이 1.43 ≈ 20.
   ///
-  /// 글자는 ElevatedButton의 기본 스타일(labelLarge — 14 × 줄높이 1.43 ≈ 20)을 탄다.
-  /// 시트 높이 계산이 이 값을 읽으므로, 패딩을 고치면 여기도 함께 움직이도록
-  /// 계산식으로 적었다.
-  static const double height = _verticalPadding * 2 + 20;
+  /// ⚠️ 이 값은 **아래 Text의 fontSize와 짝이다.** 글자 크기를 바꾸면 여기도
+  ///    바꿔야 한다. 안 바꾸면 컴파일은 통과하고 시트 높이만 조용히 어긋난다.
+  ///    (그래서 아래 Text에 fontSize를 명시했다 — 예전엔 아예 안 적어
+  ///     ElevatedButton 기본값 labelLarge에 얹혀 있었다)
+  static const double _lineHeight = 20;
+
+  /// 버튼 높이 = 세로 패딩 16×2 + 글자 한 줄.
+  /// 시트 높이 계산(measureStops)이 이 값을 읽으므로 계산식으로 적었다.
+  static const double height = _verticalPadding * 2 + _lineHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -800,6 +813,9 @@ class _ScoreButton extends StatelessWidget {
         child: Text(
           'AI 창업 점수 보기 →',
           style: TextStyle(
+            // 명시하지 않으면 ElevatedButton 기본값(labelLarge 14)을 탄다 —
+            // 프레임워크가 정한 값에 시트 높이 계산이 얹히면 안 된다
+            fontSize: SurbiText.body,
             color: isReady ? Colors.white : SurbiColors.textGray,
             fontWeight: FontWeight.bold,
           ),
