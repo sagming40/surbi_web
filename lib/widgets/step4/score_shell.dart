@@ -1,13 +1,24 @@
 // lib/widgets/step4/score_shell.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:surbi_web/app/theme.dart';
+import 'package:surbi_web/providers/score_provider.dart';
+import 'package:surbi_web/views/checklist_page.dart';
+import 'package:surbi_web/views/policy_list_page.dart';
+import 'package:surbi_web/widgets/common/surbi_accordion_section.dart';
 import 'package:surbi_web/widgets/common/surbi_app_bar.dart';
+import 'package:surbi_web/widgets/step4/report_page.dart';
 import 'package:surbi_web/widgets/step4/score_hub_panel.dart';
+import 'package:surbi_web/widgets/step4/shap_bar_chart.dart';
 
 // Step 4 허브 화면 — 게이지 패널(고정) + 3개 형제 탭(report/policies/checklist)
 // StatefulShellRoute의 builder에서 반환됨 (Phase 2의 임시 화면을 대체)
+//
+// 2026-08-27 — 900px 미만(좁은 화면) 쪽을 아코디언으로 재구성했다
+// (8/24 회의 지시 ④, 방향 C안). 900px 이상(넓은 화면)은 그대로 둔다 —
+// 잘 되고 있던 코드를 오늘 문제와 무관하게 건드릴 이유가 없어서다.
 class ScoreShell extends StatelessWidget {
   final String buildingId;
   final String categoryCode; // ⭐ 추가 — 뒤로가기 목적지(/analysis) 조립용
@@ -37,6 +48,20 @@ class ScoreShell extends StatelessWidget {
   /// 패널이 벽에 붙는 것은 **지도가 나머지를 다 써야 하기 때문**이다. /score에는
   /// 지도가 없으므로 그 근거가 성립하지 않는다.
   static const double _contentMaxWidth = 1200;
+
+  /// 좁은 화면 아코디언에서 "AI 보고서"·"정부 지원사업"·"체크리스트"를 펼쳤을 때
+  /// 줄 내부 스크롤 영역 높이.
+  ///
+  /// ⚠️ 이 세 섹션만 고정 높이 + 내부 스크롤을 쓰는 이유 — 정부지원 목록은
+  /// 필터 없이 전체 표시하며 1,417건(FE_WORKFLOW 확정 사항)이고, AI 보고서도
+  /// 생성되는 본문 길이가 늘어날 수 있다. 펼친 만큼 페이지 전체가 늘어나는
+  /// 방식(ListView shrinkWrap 등)을 쓰면 정부지원 쪽은 1,417개 카드를 한 번에
+  /// 다 그려야 해서(가상화가 무력화됨) 접었다 펼 때마다 버벅인다.
+  ///
+  /// ⚠️ SHAP만 예외로 높이 제한을 안 둔다 (2026-08-27, 사용자 확인) —
+  /// "길이와 무관하게 한눈에 다 보여야 한다"는 요구라, 여기만 그대로
+  /// 펼쳐지게(=페이지가 그만큼 길어지게) 둔다.
+  static const double _accordionListHeight = 420;
 
   @override
   Widget build(BuildContext context) {
@@ -97,16 +122,10 @@ class ScoreShell extends StatelessWidget {
             );
           }
 
-          // 900px 미만 ㅡ 세로 배치 (게이지 위, 탭+콘텐츠 아래)
-          // ⚠️ 임시 flex 비율 ㅡ 디자인 다듬기 세션에서 조정 예정
-          return Column(
-            children: [
-              const Expanded(flex: 4, child: ScoreHubPanel()),
-              const Divider(height: 1),
-              _ScoreTabBar(navigationShell: navigationShell),
-              const Divider(height: 1),
-              Expanded(flex: 6, child: navigationShell),
-            ],
+          // 900px 미만 ㅡ 아코디언 (2026-08-27, 8/24 회의 지시 ④ · C안)
+          return _NarrowAccordionBody(
+            buildingId: buildingId,
+            accordionListHeight: _accordionListHeight,
           );
         },
       ),
@@ -114,7 +133,97 @@ class ScoreShell extends StatelessWidget {
   }
 }
 
-// 3개 형제 탭 ㅡ 순서에 우열 없음 → 크기·스타일 완전 동일
+// 좁은 화면 본문 — 게이지+예상성과는 항상 펼침(ScoreOverviewHeader),
+// SHAP/AI보고서/정부지원/체크리스트 4개는 SurbiAccordionSection으로 접었다 편다.
+//
+// navigationShell(StatefulShellRoute의 IndexedStack)을 여기서는 쓰지 않는다 —
+// 아코디언은 "여러 섹션을 한 화면에서 동시에 보여줄 수 있어야" 하는데
+// IndexedStack은 항상 그중 하나만 보여주는 구조라 이 화면엔 안 맞는다.
+// 대신 report/policies/checklist 위젯을 라우팅 없이 직접 그린다 — 이 위젯들은
+// 전부 Riverpod provider만 읽는 ConsumerWidget이라(내부에서 Navigator를 쓰지
+// 않음) 셸 바깥에서 그려도 문제 없다.
+class _NarrowAccordionBody extends ConsumerWidget {
+  final String buildingId;
+  final double accordionListHeight;
+
+  const _NarrowAccordionBody({
+    required this.buildingId,
+    required this.accordionListHeight,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scoreResult = ref.watch(scoreResultProvider);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // 항상 펼침 — "이 동네 몇 점인지"는 탭/아코디언 뒤에 숨기지 않는다
+          const ScoreOverviewHeader(),
+
+          SurbiAccordionSection(
+            title: '점수 상세 분석 (SHAP)',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '막대그래프를 길게 누르면 이 점수가 무엇을 뜻하는 지 볼 수 있어요',
+                  style: TextStyle(
+                    fontSize: SurbiText.label,
+                    color: SurbiColors.textGray,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ShapBarChart(factors: scoreResult.shapFactors),
+              ],
+            ),
+          ),
+
+          SurbiAccordionSection(
+            title: 'AI 보고서',
+            // 기본으로 펼쳐둠 — 지금 라우팅 리다이렉트 기본값(/report)과 맞춘 것
+            initiallyExpanded: true,
+            // 2026-08-27 (사용자 확인 후 추가) — 보고서 본문이 길어질 수 있어
+            // 정부지원·체크리스트와 같은 방식(고정 높이 + 내부 스크롤)으로 통일.
+            // ReportViewer가 이미 SingleChildScrollView라 높이만 정해주면 그 안에서
+            // 알아서 스크롤된다. ⚠️ SHAP은 반대로 "길이와 무관하게 한눈에 다 보여야
+            // 한다"는 요구라 일부러 높이 제한을 안 둔다.
+            child: SizedBox(
+              height: accordionListHeight,
+              child: ReportPage(buildingId: buildingId),
+            ),
+          ),
+
+          SurbiAccordionSection(
+            title: '정부 지원사업',
+            // 1,417건 — 고정 높이 + 내부 스크롤 (accordionListHeight 주석 참고)
+            child: SizedBox(
+              height: accordionListHeight,
+              child: const PolicyListPage(),
+            ),
+          ),
+
+          SurbiAccordionSection(
+            title: '체크리스트',
+            child: SizedBox(
+              height: accordionListHeight,
+              // 2026-08-27 (사용자 확인 후 추가) — ChecklistPage는 원래 자기 배경을
+              // SurbiColors.primary(은백)로 직접 칠한다. 넓은 화면 탭에서는 그게
+              // Scaffold 배경과 같아서 안 보였는데, 아코디언 카드(흰 배경) 안에서는
+              // 헤더는 흰색·내용은 은백으로 갈려 이질감이 생겼다. backgroundColor로
+              // 흰색을 넘겨 카드와 맞춘다 (기본값은 그대로 primary라 넓은 화면 탭은
+              // 한 글자도 안 바뀐다).
+              child: const ChecklistPage(backgroundColor: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 3개 형제 탭 ㅡ 순서에 우열 없음 → 크기·스타일 완전 동일 (넓은 화면 전용)
 class _ScoreTabBar extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 

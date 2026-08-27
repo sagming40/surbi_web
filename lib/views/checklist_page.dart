@@ -9,7 +9,13 @@ import 'package:surbi_web/widgets/step4/checklist_progress_bar.dart';
 import 'package:surbi_web/app/theme.dart';
 
 class ChecklistPage extends ConsumerWidget {
-  const ChecklistPage({super.key});
+  // 2026-08-27 (사용자 확인 후 추가) — 좁은 화면 아코디언(흰 카드) 안에 넣을 때
+  // 카드 배경(흰색)과 맞추기 위해 배경색을 바꿀 수 있게 열어둠.
+  // 기본값은 그대로 SurbiColors.primary — 넓은 화면 탭(Scaffold 배경과 같은 색)
+  // 쪽은 한 글자도 안 바뀐다.
+  final Color? backgroundColor;
+
+  const ChecklistPage({super.key, this.backgroundColor});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,7 +23,7 @@ class ChecklistPage extends ConsumerWidget {
 
     // ⭐ Scaffold(backgroundColor: ...) → Container(color: ...)로 대체
     return Container(
-      color: SurbiColors.primary,
+      color: backgroundColor ?? SurbiColors.primary,
       child: Column(
         children: [
           Container(
